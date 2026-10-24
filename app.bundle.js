@@ -196,8 +196,8 @@ function initializeMap() {
   tiles.on('tileload', () => { tileErrors = 0; $('map-notice').hidden = true; });
   progressLine = L.polyline([], { color: '#173e73', weight: 10, opacity: .16, interactive: false }).addTo(map);
   routeLayer = L.layerGroup().addTo(map); selectionLayer = L.layerGroup().addTo(map); boundaryLayer = L.layerGroup().addTo(map);
-  const icon = L.divIcon({ className: 'canoe-marker', iconSize: [34, 34], iconAnchor: [17, 17], html: '<div class="canoe-shape"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="16" fill="white"/><path d="M17 3C10 12 10 22 17 30C24 22 24 12 17 3Z" fill="#17244f"/><path d="M17 9V23" stroke="#dcefff" stroke-width="2"/><path d="m8 23 18-12" stroke="#43a2d5" stroke-width="2.5" stroke-linecap="round"/></svg></div>' });
-  canoe = L.marker([0, 0], { icon, keyboard: false, zIndexOffset: 1000, title: 'Canoe at replay position' }).addTo(map);
+  const icon = L.divIcon({ className: 'palmetto-marker', iconSize: [40, 40], iconAnchor: [20, 20], html: '<div class="palmetto-shape"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="19" fill="white" stroke="#173e73" stroke-width="1.5"/><g fill="#173e73"><path d="M19 16h3l1 17h-7c3-5 4-11 3-17Z"/><path d="M20 17C14 8 8 10 6 15c5-2 9-1 14 2ZM20 17C14 5 8 5 7 10c5 0 8 3 13 7ZM20 17C18 5 13 3 11 7c4 2 6 5 9 10ZM20 17C17 8 17 3 20 3c3 4 2 9 0 14ZM20 17C22 5 27 3 29 7c-4 2-6 5-9 10ZM20 17C26 5 32 5 33 10c-5 0-8 3-13 7ZM20 17C26 8 32 10 34 15c-5-2-9-1-14 2ZM20 17C12 13 7 17 8 21c4-4 7-4 12-4ZM20 17C28 13 33 17 32 21c-4-4-7-4-12-4Z"/></g><path d="m19 23 3 1m-4 4 4 1" stroke="white" stroke-width="1"/></svg></div>' });
+  canoe = L.marker([0, 0], { icon, keyboard: false, zIndexOffset: 1000, title: 'Palmetto tree at replay position' }).addTo(map);
   map.on('dragstart', () => { state.follow = false; $('follow').checked = false; });
   map.on('click', event => {
     if (!state.track) return;
@@ -303,9 +303,6 @@ function updatePlayhead(force = false) {
   $('distance-progress-fill').style.width = (100 * (point.d - origin) / (selectedStats().distance || 1)) + '%';
   if (canoe) {
     canoe.setLatLng([point.lat, point.lon]);
-    const next = sample(state.track, Math.min(state.time + 10, state.end)), prev = sample(state.track, Math.max(state.time - 10, state.start));
-    const heading = Math.atan2((next.lon - prev.lon) * Math.cos(point.lat * Math.PI / 180), next.lat - prev.lat) * 180 / Math.PI;
-    const shape = canoe.getElement()?.querySelector('.canoe-shape'); if (shape) shape.style.transform = 'rotate(' + heading + 'deg)';
     const trail = state.track.points.filter((p, i) => i % 12 === 0 && p.t >= state.start && p.t <= state.time);
     // Separate polyline arrays at missing segments so replay never draws across a disconnected jump.
     const segments = []; let line = [], prior = null;

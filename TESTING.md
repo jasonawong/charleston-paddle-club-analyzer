@@ -1,4 +1,4 @@
-# Verification record · version 1.0.4
+# Verification record · version 1.0.5
 
 Verified October 24, 2026.
 
@@ -30,6 +30,10 @@ The labeled Play/Pause button and seek slider were moved ahead of the summary st
 
 Verified in portrait viewports of 320×568 and 390×650, plus a 1280×800 laptop viewport. On initial phone layout Play was around 260 pixels from the top and fully visible and clickable. After scrolling to splits it remained visible near the top. Play changed its visible label to Pause during playback and back to Play after pausing. No horizontal overflow occurred while paused or playing. On the laptop, Play was around 253 pixels from the top, above the map. No browser console errors or warnings were observed. These checks do not constitute physical iPhone/Safari hardware testing.
 
+## Palmetto marker verification
+
+Version 1.0.5 replaces the canoe drawing with a 40-pixel, club-blue palmetto tree on a white circular badge. In the browser, playback advanced the marker along the route while the tree stayed upright; pausing and changing playback speed continued to work. No browser warnings or errors were observed. All 15 existing tests and JavaScript syntax checks pass.
+
 ## Deployment boundary
 
-The updated GitHub Pages workflow and publishing guide are included. No public deployment was performed. Direct file:// navigation is blocked by the browser test tool's URL policy; the classic-script/data packaging contract is verified by tests, and startup is verified over HTTP. No browser security settings were changed.
+The GitHub Pages workflow and publishing guide are included. Pushing to main triggers the tested Pages deployment. Direct file:// navigation is blocked by the browser test tool's URL policy; the classic-script/data packaging contract is verified by tests, and startup is verified over HTTP. No browser security settings were changed.
