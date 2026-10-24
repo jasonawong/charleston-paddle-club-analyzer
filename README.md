@@ -2,7 +2,7 @@
 
 A responsive GPX race replay for Charleston Paddle Club, including the men's team's October 24, 2026 Chattajack recording. The prebuilt app runs entirely in the browser and supports GitHub Pages without a backend, paid API, or API key.
 
-Version 1.0.3 focuses on the map, timeline, playback summary, and distance splits. The Coaching, Conditions, and Moments sections have been removed. On laptops the splits appear in the right column directly below the blue playback summary. The current split highlights automatically during playback and seeking.
+Version 1.0.4 places a clearly labeled Play/Pause button and the seek slider above the map on every screen size. The playback bar stays near the top while scrolling, with no fixed bottom player to be hidden by a phone browser’s bottom chrome. The interface focuses on the map, timeline, playback summary, and distance splits. The Coaching, Conditions, and Moments sections have been removed. On laptops the splits appear in the right column directly below the blue playback summary. The current split highlights automatically during playback and seeking.
 
 ## Open the download
 
@@ -20,6 +20,7 @@ The workflow already exists; no suggested workflow template is needed. Assets us
 
 ## Explore the race
 
+- Use the labeled Play/Pause button above the map. Playback controls stay near the top while scrolling on laptops and phones.
 - Play at 1×–300×, seek on the map, speed chart, or slider, and switch miles/kilometers.
 - **Set race window** excludes staging and post-finish paddling. The original recording remains intact. Until boundaries are selected, statistics and splits describe the full recording.
 - Seek to a boundary, open the window editor, and use **Use playhead as start/finish** for precise adjustments. Boundaries save per recording in this browser and are not official race timing results.

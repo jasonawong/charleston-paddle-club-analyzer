@@ -19,7 +19,7 @@ function guardHarness(elementsExist = true) {
 }
 test('browser entry is a classic script, not a file-origin-blocked module', () => {
   assert.ok(!html.includes('type="module"'));
-  assert.match(html, /src="\.\/app\.bundle\.js" defer/);
+  assert.match(html, /src="\.\/app\.bundle\.js(?:\?v=[\d.]+)?" defer/);
   assert.doesNotThrow(() => new vm.Script(bundle));
   assert.ok(!/^import\s|^export\s/m.test(bundle));
 });

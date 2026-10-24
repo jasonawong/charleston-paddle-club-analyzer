@@ -160,7 +160,7 @@ function updateWindow() {
 }
 function setPlaying(playing) {
   state.playing = playing;
-  $('play-symbol').textContent = playing ? 'Ⅱ' : '▶'; $('play').setAttribute('aria-label', playing ? 'Pause replay' : 'Play replay');
+  $('play-symbol').textContent = playing ? 'Ⅱ' : '▶'; $('play-label').textContent = playing ? 'Pause' : 'Play'; $('play').setAttribute('aria-label', playing ? 'Pause replay' : 'Play replay');
   cancelAnimationFrame(clockFrame); lastFrame = 0;
   if (playing) clockFrame = requestAnimationFrame(tick);
   else if (state.track) updatePlayhead(true);
