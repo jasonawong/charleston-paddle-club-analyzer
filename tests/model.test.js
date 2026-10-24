@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { MILE, haversine, prepareTrack, sample, speedAt, timeAtDistance, segmentStats, splits, buildInsights, formatDuration } from '../model.js';
+import { MILE, haversine, prepareTrack, sample, speedAt, timeAtDistance, segmentStats, splits, activeSplitIndex, formatDuration } from '../model.js';
 
 const epoch = Date.parse('2026-10-24T12:00:00Z');
 const point = (t, lon = t / 100000, segment = 0) => ({ lat: 35, lon, time: epoch + t * 1000, segment });
@@ -48,14 +48,6 @@ test('splits are rebased to the chosen race start, include a final partial, and 
   assert.ok(Math.abs(rows.reduce((a, s) => a + s.duration, 0) - 540) < 1e-6);
   assert.ok(Math.abs(rows.reduce((a, s) => a + s.distance, 0) - segmentStats(track, 30, 570).distance) < 1e-6);
 });
-test('coaching uses the selected boundaries and does not fabricate a fatigue diagnosis', () => {
-  const track = uniformTrack(), insights = buildInsights(track, 30, 570);
-  assert.ok(insights.length > 0);
-  assert.ok(Math.abs(insights[0].change) < .01);
-  for (const insight of insights) for (const s of insight.sections) { assert.ok(s.start >= 30); assert.ok(s.end <= 570); }
-  assert.match(insights[0].caveat, /does not establish fatigue/);
-  assert.deepEqual(buildInsights(track, 0, 60), []);
-});
 test('bundled Chattajack regression: point counts, duration, distance, and staging-aware splits', () => {
   const xml = readFileSync(new URL('../assets/pl-2026-10-24.gpx', import.meta.url), 'utf8');
   const raw = [...xml.matchAll(/<trkpt lat="([^"]+)" lon="([^"]+)"><ele>[^<]+<\/ele><time>([^<]+)<\/time><\/trkpt>/g)].map(m => ({ lat: Number(m[1]), lon: Number(m[2]), time: Date.parse(m[3]), segment: 0 }));
@@ -66,19 +58,31 @@ test('bundled Chattajack regression: point counts, duration, distance, and stagi
   assert.ok(Math.abs(track.distance / 1000 - 51.4723) < .02);
   const rows = splits(track, 180, track.duration - 180, MILE);
   assert.equal(rows[0].start, 180);
-  const insights = buildInsights(track, 180, track.duration - 180);
-  assert.ok(insights[0].change < 0);
-  assert.ok(insights.every(i => i.sections.every(s => s.start >= 180 && s.end <= track.duration - 180)));
+  assert.equal(activeSplitIndex(rows, 180), 0);
+  assert.equal(activeSplitIndex(rows, rows[0].end), 1);
+  assert.equal(activeSplitIndex(rows, track.duration - 180), rows.length - 1);
 });
 test('duration labels round across minute boundaries', () => {
   assert.equal(formatDuration(59.9), '1:00');
   assert.equal(formatDuration(3600), '1:00:00');
 });
-test('coaching withholds pacing comparisons that cross missing GPS coverage', () => {
+test('the current split changes at exact boundaries and includes the final partial finish', () => {
+  const rows = [{ start: 30, end: 100 }, { start: 100, end: 170 }, { start: 170, end: 190 }];
+  assert.equal(activeSplitIndex(rows, 30), 0);
+  assert.equal(activeSplitIndex(rows, 99.999), 0);
+  assert.equal(activeSplitIndex(rows, 100), 1);
+  assert.equal(activeSplitIndex(rows, 170), 2);
+  assert.equal(activeSplitIndex(rows, 190), 2);
+});
+test('split highlighting supports backwards seeks, trimmed windows, and kilometer splits', () => {
   const track = uniformTrack();
-  const early = { start: 100, end: 200, disconnected: false };
-  track.gaps.push(early);
-  const insights = buildInsights(track, 0, 600);
-  assert.ok(!insights.some(i => i.id === 'pace'));
-  for (const insight of insights) for (const s of insight.sections) assert.ok(!(s.start < early.end && s.end > early.start));
+  const rows = splits(track, 60, 540, 100);
+  assert.equal(activeSplitIndex(rows, 540), rows.length - 1);
+  assert.equal(activeSplitIndex(rows, 60), 0);
+  assert.equal(activeSplitIndex(rows, 59), -1);
+  assert.equal(activeSplitIndex(rows, 541), -1);
+  assert.equal(activeSplitIndex([], 0), -1);
+  assert.equal(activeSplitIndex(rows, NaN), -1);
+  const kmRows = splits(track, 0, 600, 1000);
+  assert.equal(activeSplitIndex(kmRows, 600), kmRows.length - 1);
 });

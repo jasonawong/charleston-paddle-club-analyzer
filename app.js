@@ -1,17 +1,15 @@
-import { MILE, clamp, haversine, prepareTrack, sample, speedAt, timeAtDistance, segmentStats, splits, buildInsights, formatDuration, distanceValue, speedValue } from './model.js';
+import { MILE, clamp, haversine, prepareTrack, sample, speedAt, timeAtDistance, segmentStats, splits, activeSplitIndex, formatDuration, distanceValue, speedValue } from './model.js';
 
 const $ = id => document.getElementById(id);
-const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const state = { track: null, conditions: null, time: 0, start: 0, end: 1, confirmed: false, playing: false, rate: 60, unit: 'mi', follow: false, loop: false, selection: null, selectMode: false, tab: 'coaching', notes: [], timeZone: 'America/New_York', regional: false };
-let map, routeLayer, progressLine, canoe, boundaryLayer, noteLayer, selectionLayer, stationLayer;
-let clockFrame = 0, lastFrame = 0, lastDraw = 0, toastTimer, chartGeometry, drag = null, noteTime = 0, importGeneration = 0;
-let insights = [];
+const state = { track: null, time: 0, start: 0, end: 1, confirmed: false, playing: false, rate: 60, unit: 'mi', follow: false, loop: false, selection: null, selectMode: false, timeZone: 'America/New_York', regional: false };
+let map, routeLayer, progressLine, canoe, boundaryLayer, selectionLayer;
+let clockFrame = 0, lastFrame = 0, lastDraw = 0, toastTimer, chartGeometry, drag = null, importGeneration = 0;
+let splitRows = [], activeSplit = -1;
 const chartSamples = [];
 const speedUnit = () => state.unit === 'mi' ? 'mph' : 'km/h';
 const dist = (d, digits = 2) => distanceValue(d, state.unit).toFixed(digits) + ' ' + state.unit;
 const velocity = v => v == null ? '—' : speedValue(v, state.unit).toFixed(2) + ' ' + speedUnit();
 const localClock = (t, seconds = false) => new Intl.DateTimeFormat('en-US', { timeZone: state.timeZone, hour: 'numeric', minute: '2-digit', ...(seconds ? { second: '2-digit' } : {}), timeZoneName: 'short' }).format(new Date(state.track.epoch + t * 1000));
-const dateAt = (epoch, zone = 'America/New_York') => new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(epoch));
 const selectedStats = () => segmentStats(state.track, state.start, state.end);
 
 function toast(message, error = false) {
@@ -20,11 +18,18 @@ function toast(message, error = false) {
 }
 function persist() {
   if (!state.track) return;
-  try { localStorage.setItem('cpc:' + state.track.key, JSON.stringify({ start: state.start, end: state.end, confirmed: state.confirmed, notes: state.notes })); localStorage.setItem('cpc:preferences', JSON.stringify({ unit: state.unit, rate: state.rate })); }
-  catch { toast('Browser storage is unavailable. Export notes to keep them.', true); }
+  try {
+    const key = 'cpc:' + state.track.key;
+    let previous = {};
+    try { const value = JSON.parse(localStorage.getItem(key) || '{}'); if (value && typeof value === 'object' && !Array.isArray(value)) previous = value; } catch {}
+    // Preserve older saved fields without exposing removed features or erasing their data.
+    localStorage.setItem(key, JSON.stringify({ ...previous, start: state.start, end: state.end, confirmed: state.confirmed }));
+    localStorage.setItem('cpc:preferences', JSON.stringify({ unit: state.unit, rate: state.rate }));
+  }
+  catch { toast('Browser storage is unavailable. Race boundaries will not be saved.', true); }
 }
 function restore() {
-  state.start = 0; state.end = state.track.duration; state.confirmed = false; state.notes = [];
+  state.start = 0; state.end = state.track.duration; state.confirmed = false;
   try {
     const prefs = JSON.parse(localStorage.getItem('cpc:preferences') || '{}');
     if (['mi', 'km'].includes(prefs.unit)) state.unit = prefs.unit;
@@ -33,7 +38,6 @@ function restore() {
     if (Number.isFinite(saved.start) && Number.isFinite(saved.end) && saved.end - saved.start >= 5 && saved.start >= 0 && saved.end <= state.track.duration) {
       state.start = saved.start; state.end = saved.end; state.confirmed = saved.confirmed === true;
     }
-    if (Array.isArray(saved.notes)) state.notes = saved.notes.filter(n => n && typeof n.id === 'string' && Number.isFinite(n.t) && n.t >= 0 && n.t <= state.track.duration && typeof n.title === 'string').slice(0, 500).map(n => ({ id: n.id.slice(0, 80), t: n.t, title: n.title.slice(0, 80), body: String(n.body || '').slice(0, 2000), type: String(n.type || 'Crew moment').slice(0, 50) }));
   } catch { /* A damaged or disabled browser store must not prevent replay. */ }
 }
 function parseGPX(xml) {
@@ -64,7 +68,6 @@ async function loadTrack(xml, bundled = false, generation = importGeneration) {
   state.track = track;
   state.regional = haversine(track.points[0], { lat: 35.058752, lon: -85.307859 }) < 30000;
   state.timeZone = state.regional ? 'America/New_York' : Intl.DateTimeFormat().resolvedOptions().timeZone;
-  state.isChattajack = state.regional && dateAt(track.epoch) === '2026-10-24';
   restore();
   state.time = state.start; state.selection = null; state.loop = false; state.selectMode = false;
   $('loop').setAttribute('aria-pressed', 'false'); $('select-section').setAttribute('aria-pressed', 'false');
@@ -87,7 +90,7 @@ function initializeMap() {
   tiles.on('tileerror', () => { if (++tileErrors >= 3) { $('map-notice').textContent = 'The basemap is unavailable. Your GPS route and replay still work; reconnect to see map detail.'; $('map-notice').hidden = false; } });
   tiles.on('tileload', () => { tileErrors = 0; $('map-notice').hidden = true; });
   progressLine = L.polyline([], { color: '#173e73', weight: 10, opacity: .16, interactive: false }).addTo(map);
-  routeLayer = L.layerGroup().addTo(map); selectionLayer = L.layerGroup().addTo(map); boundaryLayer = L.layerGroup().addTo(map); noteLayer = L.layerGroup().addTo(map); stationLayer = L.layerGroup().addTo(map);
+  routeLayer = L.layerGroup().addTo(map); selectionLayer = L.layerGroup().addTo(map); boundaryLayer = L.layerGroup().addTo(map);
   const icon = L.divIcon({ className: 'canoe-marker', iconSize: [34, 34], iconAnchor: [17, 17], html: '<div class="canoe-shape"><svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="16" fill="white"/><path d="M17 3C10 12 10 22 17 30C24 22 24 12 17 3Z" fill="#17244f"/><path d="M17 9V23" stroke="#dcefff" stroke-width="2"/><path d="m8 23 18-12" stroke="#43a2d5" stroke-width="2.5" stroke-linecap="round"/></svg></div>' });
   canoe = L.marker([0, 0], { icon, keyboard: false, zIndexOffset: 1000, title: 'Canoe at replay position' }).addTo(map);
   map.on('dragstart', () => { state.follow = false; $('follow').checked = false; });
@@ -104,7 +107,7 @@ function initializeMap() {
 }
 function drawRoute() {
   if (!map) return;
-  routeLayer.clearLayers(); stationLayer.clearLayers();
+  routeLayer.clearLayers();
   const points = state.track.points;
   const speeds = [];
   for (let t = state.start; t <= state.end; t += 60) { const v = speedAt(state.track, t); if (v !== null) speeds.push(v); }
@@ -124,7 +127,6 @@ function drawRoute() {
     i = end;
   }
   $('legend-label').textContent = 'Slower';
-  drawNotesOnMap();
 }
 function fitMap() {
   if (!map || !state.track) return;
@@ -154,8 +156,7 @@ function updateWindow() {
   $('remaining-label').textContent = formatDuration(stat.duration);
   const q = state.track.quality;
   $('quality-details').textContent = state.track.points.length.toLocaleString() + ' usable timestamped points. ' + q.duplicates + ' simultaneous fixes merged; ' + q.invalid + ' invalid fixes and ' + q.outOfOrder + ' out-of-order fixes skipped. ' + state.track.gaps.length + ' gaps/segment boundaries flagged. No stroke-rate or effort measurements are inferred.';
-  insights = buildInsights(state.track, state.start, state.end);
-  drawRoute(); renderInsights(); renderSplits(); renderNotes(); renderChart(); updateBoundaries(); fitMap(); updateSelection(); updatePlayhead(true);
+  drawRoute(); renderSplits(); renderChart(); updateBoundaries(); fitMap(); updateSelection(); updatePlayhead(true);
 }
 function setPlaying(playing) {
   state.playing = playing;
@@ -183,7 +184,6 @@ function seek(t) {
   if (!state.track) return;
   state.time = clamp(Number(t), state.start, state.end); lastFrame = 0; updatePlayhead(true);
 }
-let lastConditionsBucket = '';
 function updatePlayhead(force = false) {
   if (!state.track) return;
   const point = sample(state.track, state.time), origin = sample(state.track, state.start).d;
@@ -214,8 +214,7 @@ function updatePlayhead(force = false) {
     if (guide) { guide.setAttribute('x1', x); guide.setAttribute('x2', x); }
     const dot = $('chart-playhead-dot'); if (dot) { dot.setAttribute('cx', x); dot.setAttribute('cy', chartGeometry.y(speed || 0)); dot.style.display = speed == null ? 'none' : ''; }
   }
-  const bucket = Math.floor(state.time / 30) + ':' + state.unit;
-  if (force || bucket !== lastConditionsBucket) { renderConditions(); lastConditionsBucket = bucket; }
+  updateActiveSplit();
 }
 function renderChart() {
   if (!state.track) return;
@@ -273,74 +272,46 @@ function chooseSection(start, end, label = 'Selected section', play = false) {
   }
   if (play) { state.loop = true; $('loop').setAttribute('aria-pressed', 'true'); setPlaying(true); }
 }
-function renderInsights() {
-  const container = $('coaching-insights');
-  let html = !state.confirmed ? '<div class="window-reminder">These insights include the full recording. <button class="inline-button" id="coach-set-window">Set your race window</button> to exclude staging and post-finish paddling.</div>' : '';
-  if (!insights.length) html += '<p class="empty-analysis">Coaching needs at least three minutes, 500 meters, and enough continuous GPS coverage. Expand the selected window or inspect track details.</p>';
-  insights.forEach((insight, i) => {
-    const sections = insight.sections;
-    const evidence = sections.length === 2 ? velocity(sections[0].speed) + ' → ' + velocity(sections[1].speed) + ' · ' + Math.abs(insight.change).toFixed(1) + '% ' + (insight.change < 0 ? 'lower' : 'higher') : velocity(sections[0].speed) + ' · ' + localClock(sections[0].start);
-    html += '<article class="insight"><div class="insight-type"><span class="insight-number">' + String(i + 1).padStart(2, '0') + '</span>' + insight.type + '</div><h4>' + insight.title + '</h4><p class="evidence">' + evidence + '</p><p>' + insight.tip + '</p><details><summary>How to read this</summary><p>' + insight.observation + '</p><p>' + insight.caveat + '</p></details><button class="button replay-insight" data-insight="' + i + '">▶ ' + (sections.length > 1 ? 'Compare sections' : 'Replay this minute') + '</button></article>';
-  });
-  container.innerHTML = html;
-  $('coach-set-window')?.addEventListener('click', openWindow);
-  container.querySelectorAll('[data-insight]').forEach(button => button.addEventListener('click', () => {
-    const insight = insights[Number(button.dataset.insight)];
-    let index = Number(button.dataset.section || 0), part = insight.sections[index];
-    chooseSection(part.start, part.end, insight.title + (insight.sections.length > 1 ? ' · section ' + (index + 1) + ' of 2' : ''), true);
-    if (insight.sections.length > 1) { button.dataset.section = String(1 - index); button.textContent = '▶ Replay ' + (index === 0 ? 'later / next' : 'earlier / previous') + ' section'; }
-  }));
-}
 function renderSplits() {
-  const rows = splits(state.track, state.start, state.end, state.unit === 'mi' ? MILE : 1000);
-  $('splits-body').innerHTML = rows.map((s, i) => '<tr><td>' + (s.partial ? 'Final ' + dist(s.distance) : (state.unit === 'mi' ? 'Mile ' : 'Kilometer ') + s.n) + '</td><td>' + formatDuration(s.duration) + '</td><td>' + velocity(s.speed) + '</td><td><button data-split="' + i + '" aria-label="Replay split ' + s.n + '">Replay ↗</button></td></tr>').join('');
-  $('splits-body').querySelectorAll('[data-split]').forEach(button => button.addEventListener('click', () => { const s = rows[Number(button.dataset.split)]; chooseSection(s.start, s.end, 'Split ' + s.n, true); }));
+  splitRows = splits(state.track, state.start, state.end, state.unit === 'mi' ? MILE : 1000);
+  activeSplit = -1;
+  $('split-speed-unit').textContent = speedUnit();
+  $('splits-body').innerHTML = splitRows.map((split, index) => {
+    const label = split.partial ? 'Final ' + dist(split.distance) : (state.unit === 'mi' ? 'Mile ' : 'Km ') + split.n;
+    return '<tr data-split-row="' + index + '"><th scope="row"><button class="split-replay" data-split="' + index + '" aria-label="Replay ' + label.toLowerCase() + '"><span>' + label + '</span><span class="split-current-label" hidden>Current</span></button></th><td>' + formatDuration(split.duration) + '</td><td>' + speedValue(split.speed, state.unit).toFixed(2) + '</td></tr>';
+  }).join('');
+  $('splits-body').querySelectorAll('[data-split]').forEach(button => button.addEventListener('click', () => {
+    const split = splitRows[Number(button.dataset.split)];
+    chooseSection(split.start, split.end, (state.unit === 'mi' ? 'Mile ' : 'Kilometer ') + split.n + (split.partial ? ' · partial' : ''), true);
+  }));
+  $('splits-scroll').scrollTop = 0;
+  updateActiveSplit();
+}
+function updateActiveSplit() {
+  const index = activeSplitIndex(splitRows, state.time);
+  if (index === activeSplit) return;
+  const previous = $('splits-body').querySelector('[data-split-row="' + activeSplit + '"]');
+  if (previous) {
+    previous.classList.remove('is-current'); previous.removeAttribute('aria-current');
+    previous.querySelector('.split-current-label').hidden = true;
+  }
+  activeSplit = index;
+  const row = $('splits-body').querySelector('[data-split-row="' + index + '"]');
+  if (!row) { $('split-position').textContent = ''; return; }
+  row.classList.add('is-current'); row.setAttribute('aria-current', 'step');
+  row.querySelector('.split-current-label').hidden = false;
+  const split = splitRows[index];
+  $('split-position').textContent = (split.partial ? 'Final partial split' : (state.unit === 'mi' ? 'Mile ' : 'Kilometer ') + split.n) + ' · ' + (index + 1) + ' of ' + splitRows.length;
+  // Scroll only the split list, never move the page away from the map/timeline.
+  const container = $('splits-scroll');
+  if (container.scrollHeight > container.clientHeight) {
+    const bounds = container.getBoundingClientRect(), rect = row.getBoundingClientRect();
+    const headerHeight = container.querySelector('thead').getBoundingClientRect().height;
+    if (rect.top < bounds.top + headerHeight) container.scrollTop -= bounds.top + headerHeight - rect.top;
+    else if (rect.bottom > bounds.bottom) container.scrollTop += rect.bottom - bounds.bottom;
+  }
 }
 
-function renderConditions() {
-  if (!state.track) return;
-  const context = state.conditions;
-  const matching = state.isChattajack && context && dateAt(state.track.epoch + state.time * 1000) === context.verifiedDate;
-  if (!matching) {
-    $('conditions-content').innerHTML = '<section class="condition-card"><div class="condition-heading"><h4>Conditions for this recording</h4><span class="status-badge unavailable">Unavailable</span></div><p>No verified weather or river observations are bundled for this date and location. The Chattajack snapshot is not applied to other recordings.</p><button class="text-button" id="add-condition-note">＋ Add the crew’s observations</button></section>';
-    $('add-condition-note').addEventListener('click', () => openNote('Water / river condition'));
-    return;
-  }
-  const now = state.track.epoch + state.time * 1000;
-  const observed = context.observations.filter(o => Date.parse(o.time) <= now).at(-1);
-  const age = observed ? (now - Date.parse(observed.time)) / 60000 : Infinity;
-  const fresh = observed && age <= 65;
-  const current = sample(state.track, state.time);
-  const stationDistance = haversine(current, context.station);
-  const observationClock = observed ? new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }).format(new Date(observed.time)) : '';
-  const temperature = observed ? (state.unit === 'mi' ? observed.tempF.toFixed(1) + '°' : ((observed.tempF - 32) * 5 / 9).toFixed(1) + '°') : '';
-  let html = '<section class="condition-card"><div class="condition-heading"><h4>Weather nearby</h4><span class="status-badge ' + (fresh ? '' : 'unavailable') + '">' + (fresh ? 'Observed · station' : 'No recent reading') + '</span></div>';
-  if (fresh) html += '<div class="weather-main">' + temperature + '<span>' + (state.unit === 'mi' ? 'F' : 'C') + '</span></div><div class="condition-subtitle">' + esc(observed.weather) + '</div><div class="condition-grid"><div><span>Wind at station</span><strong>' + (observed.windMph === 0 ? 'Calm' : observed.windMph + ' mph') + '</strong></div><div><span>Visibility</span><strong>' + (state.unit === 'mi' ? observed.visibilityMi + ' mi' : (observed.visibilityMi * 1.609344).toFixed(1) + ' km') + '</strong></div><div><span>Humidity</span><strong>' + observed.humidity + '%</strong></div><div><span>Observation age</span><strong>' + Math.floor(age) + ' min earlier</strong></div></div>';
-  else html += '<p class="no-reading">No verified reading near this replay time.</p><p>' + (observed ? 'The latest bundled observation is from ' + observationClock + ', ' + Math.floor(age) + ' minutes earlier. It is not carried forward as current weather.' : 'There is no observation before this replay time in the bundled snapshot.') + '</p>';
-  html += '<div class="condition-source">KCHA · ' + dist(stationDistance, 1) + ' from canoe' + (fresh ? '<br>Observed ' + observationClock : '') + '<br><a href="' + context.source + '" target="_blank" rel="noopener">National Weather Service ↗</a></div><button id="show-station" class="context-button">Locate weather station on map</button><p>Airport observations provide regional context. Wind and fog can differ along the gorge. Snapshot captured October 24, 2026.</p></section>';
-  html += '<section class="condition-card"><div class="condition-heading"><h4>Water temperature</h4><span class="status-badge unavailable">Not measured</span></div><p class="no-reading">No verified measurement</p><p><span class="status-badge forecast">Organizer forecast</span></p><p>' + esc(context.water.forecast) + '</p><a class="condition-source" href="' + context.water.source + '" target="_blank" rel="noopener">Read organizer’s forecast ↗</a></section>';
-  html += '<section class="condition-card"><div class="condition-heading"><h4>River flow & level</h4><span class="status-badge unavailable">Unavailable</span></div><p>No verified race-hour discharge or river level is bundled. Chickamauga releases are relevant context, but discharge does not tell us current speed at this canoe.</p><a class="condition-source" href="' + context.river.source + '" target="_blank" rel="noopener">TVA levels & releases ↗</a><p>Release changes also take time to travel downstream. We do not infer a local current or time advantage.</p></section><button class="text-button" id="add-condition-note">＋ Add a water / weather observation</button>';
-  $('conditions-content').innerHTML = html;
-  $('show-station').addEventListener('click', () => {
-    if (!map) return toast('The map is unavailable.', true);
-    stationLayer.clearLayers();
-    L.circleMarker([context.station.lat, context.station.lon], { radius: 7, color: '#fff', weight: 2, fillColor: '#6772ac', fillOpacity: 1 }).bindTooltip('KCHA · regional weather station', { permanent: true }).addTo(stationLayer);
-    map.fitBounds([[current.lat, current.lon], [context.station.lat, context.station.lon]], { padding: [70, 90], animate: false });
-    state.follow = false; $('follow').checked = false;
-    if (window.innerWidth < 800) $('map').scrollIntoView({ block: 'center', behavior: 'auto' });
-  });
-  $('add-condition-note').addEventListener('click', () => openNote('Water / river condition'));
-}
-function switchTab(tab, focus = false) {
-  state.tab = tab;
-  document.querySelectorAll('[data-tab]').forEach(button => {
-    const active = button.dataset.tab === tab;
-    button.setAttribute('aria-selected', String(active)); button.tabIndex = active ? 0 : -1;
-    $('panel-' + button.dataset.tab).hidden = !active;
-    if (focus && active) button.focus();
-  });
-  if (tab === 'conditions') renderConditions();
-}
 function openWindow() {
   if (!state.track) return;
   setPlaying(false);
@@ -354,52 +325,6 @@ function updateTrimLabels() {
     $('trim-' + kind + '-label').textContent = localClock(t, true) + ' · +' + formatDuration(t);
     $('trim-' + kind).setAttribute('aria-valuetext', localClock(t, true) + ', ' + formatDuration(t) + ' into recording');
   }
-}
-function openNote(type = 'Crew moment') {
-  if (!state.track) return;
-  if (state.notes.length >= 500) return toast('This recording has 500 moments. Export or remove some before adding another.', true);
-  setPlaying(false); noteTime = state.time;
-  $('note-form').reset(); $('note-type').value = type;
-  $('note-location').textContent = localClock(noteTime, true) + ' · ' + formatDuration(noteTime - state.start) + ' into selected window · ' + dist(sample(state.track, noteTime).d - sample(state.track, state.start).d);
-  $('note-dialog').showModal(); $('note-title').focus();
-}
-function renderNotes() {
-  $('note-count').textContent = state.notes.length; $('export-notes').hidden = state.notes.length === 0;
-  if (!state.notes.length) { $('notes-list').innerHTML = '<div class="notes-empty"><strong>The best context is yours.</strong><p>Pause the replay and capture a crew call,<br>a tough stretch, or something to repeat.</p></div>'; drawNotesOnMap(); return; }
-  $('notes-list').innerHTML = [...state.notes].sort((a, b) => a.t - b.t).map(note => {
-    const outside = note.t < state.start || note.t > state.end;
-    return '<article class="moment-card"><div class="moment-type">' + esc(note.type) + '</div><h4>' + esc(note.title) + '</h4><p>' + esc(note.body) + '</p>' + (outside ? '<span class="moment-outside">Outside selected race window · ' + localClock(note.t) + '</span>' : '') + '<div class="moment-actions"><button data-note-seek="' + esc(note.id) + '">' + localClock(note.t) + ' ↗</button><button class="delete-note" data-note-delete="' + esc(note.id) + '">Remove</button></div></article>';
-  }).join('');
-  $('notes-list').querySelectorAll('[data-note-seek]').forEach(button => button.addEventListener('click', () => {
-    const note = state.notes.find(n => n.id === button.dataset.noteSeek);
-    if (note.t < state.start || note.t > state.end) { toast('This moment is outside the selected window. Expand the race window to replay it.'); return; }
-    seek(note.t);
-    if (map) { const p = sample(state.track, note.t); map.panTo([p.lat, p.lon], { animate: false }); }
-  }));
-  $('notes-list').querySelectorAll('[data-note-delete]').forEach(button => button.addEventListener('click', () => {
-    const note = state.notes.find(n => n.id === button.dataset.noteDelete);
-    if (!confirm('Remove “' + note.title + '” from this browser?')) return;
-    state.notes = state.notes.filter(n => n.id !== note.id); persist(); renderNotes(); toast('Moment removed.');
-  }));
-  drawNotesOnMap();
-}
-function drawNotesOnMap() {
-  if (!noteLayer || !state.track) return;
-  noteLayer.clearLayers();
-  for (const note of state.notes) {
-    const p = sample(state.track, note.t), label = document.createElement('span'); label.textContent = note.title;
-    L.circleMarker([p.lat, p.lon], { radius: 4, color: '#fff', weight: 1.5, fillColor: '#6772ac', fillOpacity: 1 }).bindTooltip(label).on('click', event => {
-      L.DomEvent.stopPropagation(event);
-      if (note.t < state.start || note.t > state.end) return toast('This moment is outside the selected race window.');
-      seek(note.t); switchTab('moments');
-    }).addTo(noteLayer);
-  }
-}
-function exportNotes() {
-  const payload = { application: 'Charleston Paddle Club Analyzer', version: 1, recording: state.track.name, startUTC: new Date(state.track.epoch).toISOString(), raceWindow: { startOffsetSeconds: state.start, finishOffsetSeconds: state.end, userSelected: state.confirmed }, notes: state.notes.map(n => ({ ...n, timeUTC: new Date(state.track.epoch + n.t * 1000).toISOString(), position: sample(state.track, n.t) })) };
-  const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
-  const a = document.createElement('a'); a.href = url; a.download = 'charleston-paddle-club-debrief.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-  toast('Debrief notes exported.');
 }
 function openHelp() { setPlaying(false); $('help-dialog').showModal(); }
 
@@ -420,8 +345,6 @@ $('units').addEventListener('change', event => { state.unit = event.target.value
 $('fit-map').addEventListener('click', () => { state.follow = false; $('follow').checked = false; fitMap(); });
 $('follow').addEventListener('change', event => { state.follow = event.target.checked; updatePlayhead(true); });
 $('loop').addEventListener('click', () => { state.loop = !state.loop; $('loop').setAttribute('aria-pressed', String(state.loop)); if (state.loop && state.selection && (state.time < state.selection.start || state.time >= state.selection.end)) seek(state.selection.start); toast(state.loop ? 'Looping ' + (state.selection ? 'the selected section.' : 'the selected race window.') : 'Loop off.'); });
-$('bookmark').addEventListener('click', () => openNote()); $('add-note').addEventListener('click', () => openNote());
-$('export-notes').addEventListener('click', exportNotes);
 $('select-section').addEventListener('click', () => { state.selectMode = !state.selectMode; $('select-section').setAttribute('aria-pressed', String(state.selectMode)); $('chart-hint').textContent = state.selectMode ? 'Drag across the chart to select' : 'Tap to seek · drag to explore'; });
 $('clear-selection').addEventListener('click', () => { state.selection = null; updateSelection(); });
 $('window-button').addEventListener('click', openWindow);
@@ -433,23 +356,11 @@ $('window-form').addEventListener('submit', event => {
   event.preventDefault(); const start = Number($('trim-start').value), end = Number($('trim-end').value);
   if (end - start < 5) { $('trim-error').textContent = 'Choose a finish at least five seconds after the start.'; $('trim-error').hidden = false; return; }
   state.start = start; state.end = end; state.confirmed = true; state.time = clamp(state.time, start, end); state.selection = null;
-  persist(); updateWindow(); $('window-dialog').close(); toast('Race window updated. Splits and coaching recalculated.');
+  persist(); updateWindow(); $('window-dialog').close(); toast('Race window updated. Splits recalculated.');
 });
 $('reset-window').addEventListener('click', () => { state.start = 0; state.end = state.track.duration; state.confirmed = false; state.selection = null; persist(); updateWindow(); $('window-dialog').close(); toast('Showing the full recording.'); });
-$('note-form').addEventListener('submit', event => {
-  event.preventDefault(); const title = $('note-title').value.trim(); if (!title) { $('note-title').focus(); return; }
-  state.notes.push({ id: String(Date.now()) + '-' + Math.random().toString(36).slice(2, 8), t: noteTime, title, type: $('note-type').value, body: $('note-body').value.trim() });
-  persist(); renderNotes(); $('note-dialog').close(); switchTab('moments'); toast('Moment saved to this browser.');
-});
 document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => $(button.dataset.close).close()));
 for (const id of ['help-button', 'footer-help', 'quality-button']) $(id).addEventListener('click', openHelp);
-document.querySelectorAll('[data-tab]').forEach(button => {
-  button.addEventListener('click', () => switchTab(button.dataset.tab));
-  button.addEventListener('keydown', event => {
-    const tabs = ['coaching', 'conditions', 'moments'], index = tabs.indexOf(state.tab);
-    if (['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) { event.preventDefault(); const next = event.key === 'Home' ? 0 : event.key === 'End' ? 2 : (index + (event.key === 'ArrowRight' ? 1 : 2)) % 3; switchTab(tabs[next], true); }
-  });
-});
 const chart = $('speed-chart');
 chart.addEventListener('pointerdown', event => {
   if (!state.track || !chartGeometry || event.button !== 0) return;
@@ -504,16 +415,14 @@ async function boot() {
   try {
     // build.mjs embeds this data in the classic browser script, avoiding file:// CORS.
     if (typeof embeddedRace !== 'undefined') {
-      state.conditions = embeddedRace.conditions;
       await loadTrack(embeddedRace.gpx, true, importGeneration);
     } else {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 12000);
       try {
-        const [gpxResult, conditionsResult] = await Promise.allSettled([fetch('./assets/pl-2026-10-24.gpx', { signal: controller.signal }).then(r => { if (!r.ok) throw new Error('Race file could not be loaded.'); return r.text(); }), fetch('./assets/conditions.json', { signal: controller.signal }).then(r => { if (!r.ok) throw new Error('Conditions unavailable'); return r.json(); })]);
-        if (conditionsResult.status === 'fulfilled') state.conditions = conditionsResult.value;
-        if (gpxResult.status === 'rejected') throw gpxResult.reason;
-        await loadTrack(gpxResult.value, true, importGeneration);
+        const response = await fetch('./assets/pl-2026-10-24.gpx', { signal: controller.signal });
+        if (!response.ok) throw new Error('Race file could not be loaded.');
+        await loadTrack(await response.text(), true, importGeneration);
       } finally { clearTimeout(timer); }
     }
     window.CPCStartup?.ready();

@@ -23,12 +23,11 @@ test('browser entry is a classic script, not a file-origin-blocked module', () =
   assert.doesNotThrow(() => new vm.Script(bundle));
   assert.ok(!/^import\s|^export\s/m.test(bundle));
 });
-test('the browser bundle contains the complete race and conditions, requiring no GPX fetch', () => {
+test('the browser bundle contains the complete race, requiring no GPX fetch', () => {
   const marker = 'const embeddedRace = ';
   const start = bundle.indexOf(marker) + marker.length;
   const payload = JSON.parse(bundle.slice(start, bundle.indexOf(';\n', start)));
   assert.equal(payload.gpx, read('assets/pl-2026-10-24.gpx'));
-  assert.deepEqual(payload.conditions, JSON.parse(read('assets/conditions.json')));
   assert.match(bundle, /loadTrack\(embeddedRace\.gpx/);
 });
 test('stalled startup dismisses the loading screen with a recovery message', () => {

@@ -80,40 +80,17 @@ export function splits(track, start, end, size = MILE) {
   }
   return result;
 }
-export function buildInsights(track, start, end) {
-  const total = segmentStats(track, start, end);
-  if (total.duration < 180 || total.distance < 500) return [];
-  // Compare equal-distance interior sections. Keep staging/finishing edges out of the comparison.
-  const origin = sample(track, start).d;
-  const range = (lo, hi) => segmentStats(track, timeAtDistance(track, origin + total.distance * lo), timeAtDistance(track, origin + total.distance * hi));
-  const early = range(.15, .35), late = range(.7, .9);
-  const change = (late.speed / early.speed - 1) * 100;
-  const hasGap = section => track.gaps.some(g => g.start < section.end && g.end > section.start);
-  const insights = [];
-  if (!hasGap(early) && !hasGap(late) && early.speed > 0 && late.speed > 0) insights.push({
-    id: 'pace', title: Math.abs(change) < 2 ? 'Explore your pace consistency' : change < 0 ? 'Review late-race pace retention' : 'Explore your stronger closing pace',
-    type: 'Pacing', sections: [early, late], change,
-    observation: 'Equal-distance sections from the earlier and later parts of your selected window.',
-    tip: change < -2 ? 'Compare conditions and crew recollections across these sections. If effort rose as speed fell, discuss opening effort and a repeatable late-race rhythm.' : change > 2 ? 'Ask what supported the stronger closing pace. Look for a crew cue or pacing choice you could repeat in another race.' : 'Identify the cues that helped the crew sustain a steady rhythm, then check how conditions differed between these sections.',
-    caveat: 'Speed over ground includes current and wind effects. A change does not establish fatigue or a change in effort.'
-  });
-  let slowest = null;
-  for (let t = start + total.duration * .1; t + 60 < end - total.duration * .05; t += 10) {
-    if (track.gaps.some(g => g.start < t + 60 && g.end > t)) continue;
-    const stat = segmentStats(track, t, t + 60);
-    if (!slowest || stat.speed < slowest.speed) slowest = stat;
+// Split intervals are half-open: an exact boundary belongs to the next split.
+// At the recording finish, keep the final (possibly partial) split highlighted.
+export function activeSplitIndex(rows, time) {
+  if (!rows.length || !Number.isFinite(time) || time < rows[0].start || time > rows.at(-1).end) return -1;
+  let lo = 0, hi = rows.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (time >= rows[mid].end) lo = mid + 1;
+    else hi = mid;
   }
-  if (slowest) insights.push({ id: 'moment', title: 'Unpack a slower minute', type: 'Race moment', sections: [slowest], observation: 'The slowest complete 60-second section sampled every 10 seconds in the interior of this window.', tip: 'Replay the line and add the crew’s explanation. Was this a turn, traffic, a crew reset, or a change in conditions? Discuss the response you would want next time.', caveat: 'This is a review prompt, not a diagnosis of technique. GPS cannot tell whether a slowdown was intentional.' });
-  const size = total.distance >= 5 * MILE ? MILE : 500;
-  const full = splits(track, start, end, size).filter(s => !s.partial);
-  let recovery = null;
-  for (let i = 1; i < full.length; i++) {
-    if (i < 2 || track.gaps.some(g => g.start < full[i].end && g.end > full[i - 1].start)) continue;
-    const gain = (full[i].speed / full[i - 1].speed - 1) * 100;
-    if (!recovery || gain > recovery.gain) recovery = { gain, a: full[i - 1], b: full[i] };
-  }
-  if (recovery && recovery.gain > 1) insights.push({ id: 'recovery', title: 'Find what helped the recovery', type: 'Crew response', sections: [recovery.a, recovery.b], change: recovery.gain, observation: 'The largest speed increase between consecutive full ' + (size === MILE ? 'mile' : '500 m') + ' splits, excluding the opening splits.', tip: 'Ask the team what changed between these sections. If a crew call or rhythm reset helped, capture it as a cue to practice.', caveat: 'A faster split may reflect river conditions or course geometry. Confirm the story with the crew.' });
-  return insights;
+  return Math.min(lo, rows.length - 1);
 }
 export function formatDuration(seconds) {
   seconds = Math.max(0, Math.round(seconds));
