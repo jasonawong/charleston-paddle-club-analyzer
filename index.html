@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#17244f">
+  <meta name="description" content="Replay your race, explore the river, and learn together. A GPX analyzer for Charleston Paddle Club.">
+  <title>Charleston Paddle Club Analyzer</title>
+  <link rel="icon" href="./assets/cpc-logo.png" type="image/png">
+  <link rel="stylesheet" href="./vendor/leaflet.css">
+  <link rel="stylesheet" href="./styles.css">
+  <script id="startup-guard">
+    (function () {
+      var ready = false, failure = '';
+      function showFailure(message) {
+        if (ready) return;
+        failure = message;
+        var loading = document.getElementById('loading');
+        var error = document.getElementById('load-error');
+        if (loading) loading.hidden = true;
+        if (error) { error.textContent = message; error.hidden = false; }
+      }
+      var timer = setTimeout(function () {
+        showFailure('The app could not finish starting. Re-extract the complete download and reopen index.html. If you are using a hosted copy, reload the page or check that app.bundle.js was uploaded.');
+      }, 15000);
+      window.CPCStartup = {
+        ready: function () { ready = true; clearTimeout(timer); },
+        fail: function (message) { clearTimeout(timer); showFailure(message); }
+      };
+      window.addEventListener('error', function (event) {
+        if (!ready && event.message) window.CPCStartup.fail('The app could not start: ' + event.message + '. Re-extract the complete download and try again.');
+      });
+      window.addEventListener('unhandledrejection', function (event) {
+        if (!ready) window.CPCStartup.fail('The app could not start: ' + String(event.reason && event.reason.message || event.reason));
+      });
+      document.addEventListener('DOMContentLoaded', function () { if (failure) showFailure(failure); });
+    })();
+  </script>
+  <script src="./vendor/leaflet.js" defer></script>
+  <script src="./app.bundle.js" defer onerror="CPCStartup.fail('The application file is missing. Re-extract the complete download, keeping index.html and app.bundle.js together.')"></script>
+</head>
+<body>
+  <a class="skip-link" href="#replay">Skip to replay</a>
+  <header class="app-header">
+    <div class="brand"><img src="./assets/cpc-logo.png" width="64" height="64" alt="Charleston Paddle Club logo"><div><h1>Charleston Paddle Club <span>Analyzer</span></h1><p>Every mile tells a story.</p></div></div>
+    <div class="header-actions"><label class="button upload-button" for="gpx-file"><span aria-hidden="true">↥</span> Load GPX</label><input id="gpx-file" type="file" accept=".gpx,application/gpx+xml,application/xml,text/xml" class="visually-hidden"><button id="help-button" class="icon-button" aria-label="Open replay help">?</button></div>
+  </header>
+  <main id="replay">
+    <section class="race-heading" aria-label="Race overview">
+      <div><div class="eyebrow"><span class="live-dot"></span> THE RACE ROOM <span class="edition">01 / REPLAY</span></div><h2 id="race-title">Chattajack 2026</h2><p id="race-subtitle">Men’s team · Tennessee River Gorge · October 24, 2026</p></div>
+      <div class="race-options"><label class="units-label">Units<select id="units" aria-label="Distance and speed units"><option value="mi">mi / mph</option><option value="km">km / km/h</option></select></label><button id="window-button" class="button window-button"><span aria-hidden="true">↔</span> Set race window</button></div>
+    </section>
+    <div id="load-error" class="error-banner" role="alert" hidden></div>
+    <section class="summary-row" aria-label="Selected window statistics">
+      <div><span class="metric-label">DISTANCE</span><strong id="total-distance">—</strong><span id="total-distance-unit">mi</span></div>
+      <div><span class="metric-label" id="duration-label">RECORDING TIME</span><strong id="total-duration">—</strong></div>
+      <div><span class="metric-label">AVG. GROUND SPEED</span><strong id="avg-speed">—</strong><span class="speed-unit">mph</span></div>
+      <div class="window-state"><span class="metric-label">ANALYSIS WINDOW</span><strong id="window-state">Full recording</strong><span id="window-detail">Includes staging & post-finish</span></div>
+    </section>
+    <div class="workspace">
+      <section class="replay-column" aria-label="Map and speed timeline">
+        <div class="map-shell">
+          <div id="map" aria-label="Interactive race route map"></div>
+          <div class="map-topline"><div class="map-location"><span class="eyebrow">ON THE WATER</span><strong id="map-title">Tennessee River Gorge</strong><span id="map-caption">GPS track · select the route to explore</span><span id="map-live-speed" class="map-live-speed">—</span></div><button id="fit-map" class="map-button" aria-label="Fit the full selected route">↗ <span>Full route</span></button></div>
+          <div class="map-bottomline"><div class="map-legend"><span class="legend-line"></span><span id="legend-label">Slower</span><span class="legend-gradient"></span><span>Faster</span></div><label class="follow-control"><input type="checkbox" id="follow"> Follow canoe</label></div>
+          <div id="map-notice" class="map-notice" role="status" hidden></div>
+        </div>
+        <section class="timeline" aria-label="Speed timeline">
+          <div class="section-heading"><div><span class="eyebrow">FIND YOUR MOMENT</span><h3>Speed through the race</h3></div><button id="select-section" class="text-button" aria-pressed="false">Select section</button></div>
+          <div class="chart-label-row"><span id="chart-speed-unit">GROUND SPEED · MPH</span><span id="chart-hint">Tap to seek · drag to explore</span></div>
+          <div id="chart-wrap"><svg id="speed-chart" role="img" aria-label="Speed over elapsed time. Use the seek slider below for keyboard access."></svg><div id="chart-hover" class="chart-hover" hidden></div></div>
+          <div class="seek-row"><span id="elapsed-label">0:00</span><input id="seek" type="range" min="0" max="1" value="0" step="1" aria-label="Seek through selected window"><span id="remaining-label">—</span></div>
+          <div class="playback-bar"><div class="transport"><button id="back" class="icon-button" aria-label="Back 10 seconds">↶<small>10</small></button><button id="play" class="play-button" aria-label="Play replay" disabled><span id="play-symbol">▶</span></button><button id="forward" class="icon-button" aria-label="Forward 10 seconds">↷<small>10</small></button><label class="rate-label"><span class="visually-hidden">Playback speed</span><select id="rate" aria-label="Playback speed"><option value="1">1×</option><option value="10">10×</option><option value="30">30×</option><option value="60" selected>60×</option><option value="120">120×</option><option value="300">300×</option></select></label></div><div class="playback-actions"><button id="bookmark" class="text-button">＋ Add moment</button><button id="loop" class="text-button" aria-pressed="false">↻ Loop</button></div></div>
+          <div id="selection-summary" class="selection-summary" hidden><div><strong id="selection-title">Selected section</strong><span id="selection-detail"></span></div><button id="clear-selection" class="text-button">Clear</button></div>
+          <p class="data-note">Speed over ground · 30-second smoothing · calculated from GPS. <button id="quality-button" class="inline-button">Track details</button></p>
+        </section>
+        <details class="splits-section"><summary><span>Distance splits</span><span class="summary-hint">Select a split to replay it <span aria-hidden="true">＋</span></span></summary><div class="table-scroll"><table><thead><tr><th>Split</th><th>Time</th><th>Avg. speed</th><th>Replay</th></tr></thead><tbody id="splits-body"></tbody></table></div></details>
+      </section>
+      <aside class="inspector" aria-label="Replay details">
+        <section class="playhead-panel"><div class="panel-top"><span class="eyebrow">AT THE PLAYHEAD</span><span id="clock">—</span></div><div class="speed-readout"><strong id="current-speed">—</strong><span class="speed-unit">mph</span><span id="speed-caption">ground speed</span></div><div class="playhead-details"><div><span>Distance</span><strong id="current-distance">—</strong></div><div><span>Elapsed</span><strong id="current-elapsed">0:00</strong></div></div><div class="distance-progress"><div id="distance-progress-fill"></div></div><div id="gps-gap" class="gap-label" hidden>GPS gap · holding last recorded position</div></section>
+        <div class="inspector-tabs" role="tablist" aria-label="Race exploration"><button id="tab-coaching" role="tab" aria-selected="true" aria-controls="panel-coaching" tabindex="0" data-tab="coaching">Coaching</button><button id="tab-conditions" role="tab" aria-selected="false" aria-controls="panel-conditions" tabindex="-1" data-tab="conditions">Conditions</button><button id="tab-moments" role="tab" aria-selected="false" aria-controls="panel-moments" tabindex="-1" data-tab="moments">Moments <span id="note-count">0</span></button></div>
+        <section id="panel-coaching" class="tab-panel" role="tabpanel" aria-labelledby="tab-coaching"><div class="panel-intro"><span class="eyebrow">LEARN TOGETHER</span><h3>A conversation with your race.</h3><p>Track-backed observations. Crew-led explanations.</p></div><div id="coaching-insights"></div><p class="inspector-note">GPS cannot measure stroke timing, effort, fatigue, or speed through water. Use these prompts with crew recollections and conditions.</p></section>
+        <section id="panel-conditions" class="tab-panel" role="tabpanel" aria-labelledby="tab-conditions" hidden><div class="panel-intro"><span class="eyebrow">READ THE RIVER</span><h3>Context at this moment.</h3><p>Historical context follows the replay clock.</p></div><div id="conditions-content"></div></section>
+        <section id="panel-moments" class="tab-panel" role="tabpanel" aria-labelledby="tab-moments" hidden><div class="panel-intro"><span class="eyebrow">THE CREW’S STORY</span><h3>Remember this bit.</h3><p>Bookmark a surge, a crew call, or a stretch of rough water.</p></div><button id="add-note" class="button primary-button">＋ Add moment at playhead</button><div id="notes-list"></div><button id="export-notes" class="text-button" hidden>↓ Export debrief notes</button><p class="inspector-note">Moments and race boundaries save in this browser for this recording. Export notes to keep a separate copy.</p></section>
+      </aside>
+    </div>
+    <footer><span>CHARLESTON PADDLE CLUB <span class="footer-dot">•</span> Built for the crew.</span><span>GPX files stay in your browser. <button id="footer-help" class="inline-button">About & sources</button></span></footer>
+  </main>
+  <div id="loading" class="loading"><img src="./assets/cpc-logo.png" width="88" height="88" alt="Charleston Paddle Club logo"><strong>Finding our line…</strong><span>Loading the Chattajack recording</span><noscript>Enable JavaScript in your browser to replay this recording.</noscript></div>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <dialog id="window-dialog" aria-labelledby="window-dialog-title"><form id="window-form"><div class="dialog-header"><div><span class="eyebrow">DEFINE YOUR RACE</span><h2 id="window-dialog-title">Keep the race. Trim the rest.</h2></div><button type="button" class="icon-button" data-close="window-dialog" aria-label="Close race window">×</button></div><p>Move the boundaries past staging and before post-finish paddling. This changes the replay, splits, and coaching insights.</p><label class="trim-field" for="trim-start"><span>Race start <strong id="trim-start-label"></strong></span><input id="trim-start" type="range" min="0" max="1" value="0" step="1"></label><button type="button" id="start-at-playhead" class="text-button">Use playhead as start</button><label class="trim-field" for="trim-end"><span>Race finish <strong id="trim-end-label"></strong></span><input id="trim-end" type="range" min="0" max="1" value="1" step="1"></label><button type="button" id="end-at-playhead" class="text-button">Use playhead as finish</button><p id="trim-error" class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" id="reset-window" class="text-button">Full recording</button><button type="submit" class="button primary-button">Apply race window</button></div></form></dialog>
+  <dialog id="note-dialog" aria-labelledby="note-dialog-title"><form id="note-form"><div class="dialog-header"><div><span class="eyebrow">CAPTURE THE MOMENT</span><h2 id="note-dialog-title">What happened here?</h2></div><button type="button" class="icon-button" data-close="note-dialog" aria-label="Close moment editor">×</button></div><p id="note-location"></p><label class="form-field">Title<input id="note-title" maxlength="80" placeholder="A surge, a reset, a memorable bend…" required></label><label class="form-field">Type<select id="note-type"><option>Crew moment</option><option>Coaching cue</option><option>Water / river condition</option><option>Weather observation</option></select></label><label class="form-field">Crew’s notes<textarea id="note-body" rows="4" maxlength="2000" placeholder="What did you see, feel, or hear? What should we repeat?"></textarea></label><div class="dialog-actions"><span>Saved on this device</span><button type="submit" class="button primary-button">Save moment</button></div></form></dialog>
+  <dialog id="help-dialog" aria-labelledby="help-title"><div class="dialog-header"><div><span class="eyebrow">CHARLESTON PADDLE CLUB</span><h2 id="help-title">Your replay, explained.</h2></div><button class="icon-button" data-close="help-dialog" aria-label="Close help">×</button></div><div class="help-content"><h3>Explore</h3><p>Tap the route or speed chart to seek. Use Select section, then drag across the chart to choose an interval. Press Loop to repeat that interval, or the whole window if none is selected.</p><h3>Set your race window</h3><p>The bundled recording includes staging and post-finish paddling. Until you set boundaries, all times and insights describe the full recording. Your selected window is not an official race result.</p><h3>Keyboard controls</h3><p>Space: play/pause. Left/right arrows: seek 10 seconds. Home/End: go to the selected window’s start/finish. Native slider controls also work.</p><h3>Your data</h3><p>Uploaded GPX files are parsed locally and never uploaded by this app. Notes and boundaries stay in this browser. Map requests go to OpenStreetMap and reveal the viewed map area. The bundled race file will be publicly accessible if you publish this site publicly.</p><h3>Conditions & sources</h3><p>The bundled Chattajack conditions are a partial historical snapshot, not live weather. Station observations are shown only for the matching recording date and region. Readings older than 65 minutes are marked unavailable; they are never carried through the rest of the race as current observations.</p><ul><li><a href="https://forecast.weather.gov/data/obhistory/KCHA.html" target="_blank" rel="noopener">NWS Chattanooga / Lovell Field</a> · partial observations captured October 24, 2026; the source page rolls forward.</li><li><a href="https://www.chattajack.com/forecasted-conditions" target="_blank" rel="noopener">Chattajack forecast context</a> · anticipated water temperature, not a measurement.</li><li><a href="https://www.tva.com/environment/lake-levels" target="_blank" rel="noopener">TVA water levels & releases</a> · race-hour readings not yet verified.</li><li><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a> · online basemap, displayed with Leaflet.</li></ul><h3>Track quality</h3><p id="quality-details">Loading track details…</p><p>Speed uses a 30-second centered distance/time window, shortened at the selected boundaries. GPS gaps are not assigned speed. Distant segments and gaps over 30 seconds are not connected for distance calculations. Coaching comparisons use equal-distance sections within the selected window and do not infer effort or technique.</p></div></dialog>
+</body>
+</html>

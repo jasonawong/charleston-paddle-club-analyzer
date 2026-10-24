@@ -1,0 +1,16 @@
+{
+  "title": "Chattajack 2026 · regional context",
+  "station": { "name": "Chattanooga / Lovell Field (KCHA)", "lat": 35.03333, "lon": -85.2, "coordinateSource": "https://api.weather.gov/stations/KCHA" },
+  "source": "https://forecast.weather.gov/data/obhistory/KCHA.html",
+  "sourceLabel": "National Weather Service · KCHA",
+  "verifiedDate": "2026-10-24",
+  "observations": [
+    { "time": "2026-10-24T07:53:00-04:00", "tempF": 45, "windMph": 0, "visibilityMi": 1, "humidity": 97, "weather": "Patches of fog / mist" },
+    { "time": "2026-10-24T08:53:00-04:00", "tempF": 48.9, "windMph": 0, "visibilityMi": 1, "humidity": 86, "weather": "Patches of fog / mist" },
+    { "time": "2026-10-24T09:53:00-04:00", "tempF": 54, "windMph": 0, "visibilityMi": 6, "humidity": 80, "weather": "Patches of fog / mist" },
+    { "time": "2026-10-24T10:53:00-04:00", "tempF": 61, "windMph": 0, "visibilityMi": 10, "humidity": 63, "weather": "Clear / fair" }
+  ],
+  "notes": "A fixed, partial snapshot of race-morning observations retrieved on October 24, 2026. It is not live weather. Later race-hour observations have not been verified. Airport wind and visibility do not describe every part of the gorge.",
+  "water": { "observedTempF": null, "forecast": "The organizer anticipated water temperatures in the low 70s °F. This is a forecast, not a measured race-day temperature.", "source": "https://www.chattajack.com/forecasted-conditions" },
+  "river": { "dischargeCfs": null, "levelFt": null, "source": "https://www.tva.com/environment/lake-levels", "notes": "Chickamauga Dam releases provide river context for this course. Race-hour discharge and river level have not been verified. Dam discharge is a volume rate, not current speed at the canoe; release effects also take time to travel downstream." }
+}

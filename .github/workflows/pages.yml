@@ -1,0 +1,44 @@
+name: Test and deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify JavaScript and track calculations
+        run: |
+          node build.mjs
+          node --check app.js
+          node --check app.bundle.js
+          node --check model.js
+          node --test tests/*.test.js
+      - name: Prepare the static site
+        run: |
+          mkdir -p _site/assets _site/vendor
+          cp index.html styles.css app.bundle.js .nojekyll _site/
+          cp -R assets/. _site/assets/
+          cp -R vendor/. _site/vendor/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - name: Publish
+        id: deployment
+        uses: actions/deploy-pages@v4
