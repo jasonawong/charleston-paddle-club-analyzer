@@ -86,12 +86,13 @@ function splits(track, start, end, size = MILE) {
 }
 // Split intervals are half-open: an exact boundary belongs to the next split.
 // At the recording finish, keep the final (possibly partial) split highlighted.
-function activeSplitIndex(rows, time) {
-  if (!rows.length || !Number.isFinite(time) || time < rows[0].start || time > rows.at(-1).end) return -1;
+function activeSplitIndex(rows, time, tolerance = 0) {
+  if (!rows.length || !Number.isFinite(time) || time < rows[0].start - tolerance || time > rows.at(-1).end + tolerance) return -1;
+  const boundaryTime = Math.min(time + tolerance, rows.at(-1).end);
   let lo = 0, hi = rows.length;
   while (lo < hi) {
     const mid = (lo + hi) >>> 1;
-    if (time >= rows[mid].end) lo = mid + 1;
+    if (boundaryTime >= rows[mid].end) lo = mid + 1;
     else hi = mid;
   }
   return Math.min(lo, rows.length - 1);
@@ -127,23 +128,25 @@ function palmettoMarkup(color = '#173e73') {
 }
 
 
-// The clock axis uses UTC seconds; the elapsed axis starts at each selected window.
-function comparisonDomain(entries, mode = 'elapsed') {
-  if (mode === 'clock') return {
+// UTC seconds lose sub-microsecond precision when converted back to track-relative time.
+const CLOCK_TOLERANCE = 1e-6;
+
+// All comparison coordinates are absolute UTC seconds from the GPX timestamps.
+function comparisonDomain(entries) {
+  return {
     start: Math.min(...entries.map(e => e.track.epoch / 1000 + e.start)),
     end: Math.max(...entries.map(e => e.track.epoch / 1000 + e.end))
   };
-  return { start: 0, end: Math.max(...entries.map(e => e.end - e.start)) };
 }
-function comparisonCoordinate(entry, trackTime, mode = 'elapsed') {
-  return mode === 'clock' ? entry.track.epoch / 1000 + trackTime : trackTime - entry.start;
+function comparisonCoordinate(entry, trackTime) {
+  return entry.track.epoch / 1000 + trackTime;
 }
-function comparisonSnapshot(entry, coordinate, mode = 'elapsed') {
-  const rawTime = mode === 'clock' ? coordinate - entry.track.epoch / 1000 : entry.start + coordinate;
-  const time = clamp(rawTime, entry.start, entry.end);
+function comparisonSnapshot(entry, coordinate) {
+  const rawTime = coordinate - entry.track.epoch / 1000;
+  const status = rawTime < entry.start - CLOCK_TOLERANCE ? 'waiting' : rawTime >= entry.end - CLOCK_TOLERANCE ? 'complete' : 'active';
+  const time = status === 'complete' ? entry.end : clamp(rawTime, entry.start, entry.end);
   const point = sample(entry.track, time);
-  const status = rawTime < entry.start ? 'waiting' : rawTime >= entry.end ? 'complete' : 'active';
-  return { point, time, elapsed: time - entry.start, distance: point.d - sample(entry.track, entry.start).d, status,
+  return { point, time, distance: point.d - sample(entry.track, entry.start).d, status,
     speed: status === 'active' ? speedAt(entry.track, time, 30, entry.start, entry.end) : null };
 }
 function comparisonSplits(entries, size) {
@@ -162,14 +165,14 @@ const teams = [
   { name: 'Men’s team', color: '#173e73', track: null, start: 0, end: 0, generation: 0 },
   { name: 'Women’s team', color: '#c73745', track: null, start: 0, end: 0, generation: 0 }
 ];
-const state = { mode: 'elapsed', unit: 'mi', rate: 60, playing: false, loop: false, follow: false, time: 0, domain: { start: 0, end: 1 } };
+const state = { unit: 'mi', rate: 60, playing: false, loop: false, follow: false, time: 0, domain: { start: 0, end: 1 } };
 let map, routes, markers = [], frame = 0, lastFrame = 0, lastDraw = 0, windowTeam = 0;
 let rows = [], teamSplits = [[], []], currentSplits = [-1, -1], chartGeometry = {}, chartDrag = null;
 const unitSpeed = () => state.unit === 'mi' ? 'mph' : 'km/h';
 const distanceText = (meters, digits = 2) => distanceValue(meters, state.unit).toFixed(digits) + ' ' + state.unit;
 const speedText = speed => speed == null ? '—' : speedValue(speed, state.unit).toFixed(2) + ' ' + unitSpeed();
-const snapshot = e => comparisonSnapshot(e, state.time, state.mode);
-const axisTime = t => state.mode === 'elapsed' ? formatDuration(t) : new Intl.DateTimeFormat('en-US', { timeZone: timeZone(teams[0]), hour: 'numeric', minute: '2-digit', ...(state.domain.end - state.domain.start > 86400 ? { month: 'short', day: 'numeric' } : {}) }).format(new Date(t * 1000));
+const snapshot = e => comparisonSnapshot(e, state.time);
+const axisTime = t => new Intl.DateTimeFormat('en-US', { timeZone: timeZone(teams[0]), hour: 'numeric', minute: '2-digit', ...(state.domain.end - state.domain.start > 86400 ? { month: 'short', day: 'numeric' } : {}) }).format(new Date(t * 1000));
 function timeZone(entry) {
   return haversine(entry.track.points[0], { lat: 35.058752, lon: -85.307859 }) < 30000 ? 'America/New_York' : Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
@@ -186,7 +189,6 @@ function save(entry) {
   try {
     if (entry) localStorage.setItem(entry.key, JSON.stringify({ start: entry.start, end: entry.end, name: entry.name }));
     localStorage.setItem('cpc:preferences', JSON.stringify({ unit: state.unit, rate: state.rate }));
-    localStorage.setItem('cpc:comparison-mode', state.mode);
   } catch { /* A disabled browser store must not interrupt replay. */ }
 }
 function loadEntry(xml, index, filename, bundled = false) {
@@ -203,11 +205,11 @@ function loadEntry(xml, index, filename, bundled = false) {
 }
 function refresh() {
   setPlaying(false);
-  state.domain = comparisonDomain(teams, state.mode); state.time = state.domain.start;
+  state.domain = comparisonDomain(teams); state.time = state.domain.start;
   $('comparison-subtitle').textContent = teams.every(e => e.bundled) ? 'Chattajack 2026 · Charleston Paddle Club · October 24, 2026' : 'Compare two GPX recordings · adjust each team’s race window';
-  $('sync-mode').value = state.mode; $('units').value = state.unit; $('rate').value = String(state.rate);
-  $('sync-explanation').textContent = state.mode === 'elapsed' ? 'Both selected starts line up at 0:00. Adjust each race window to exclude staging.' : 'Original GPS timestamps stay aligned. Teams wait for their selected start and stop at their selected finish.';
-  $('difference-note').textContent = state.mode === 'elapsed' ? 'At the same elapsed time · along each team’s own track' : 'At the same clock time · along each team’s own track';
+  $('units').value = state.unit; $('rate').value = String(state.rate);
+  $('sync-explanation').textContent = 'Both tracks follow their original GPS timestamps. Times are shown in ' + timeZone(teams[0]) + '.';
+  $('difference-note').textContent = 'At the same clock time · along each team’s own track';
   $('seek').min = state.domain.start; $('seek').max = state.domain.end;
   $('remaining-label').textContent = axisTime(state.domain.end);
   teams.forEach((entry, i) => {
@@ -263,7 +265,7 @@ function drawRoutes() {
         const d = haversine(point, { lat: event.latlng.lat, lon: event.latlng.lng });
         if (d < nearest) { nearest = d; best = point; }
       }
-      if (best) { setPlaying(false); seek(comparisonCoordinate(entry, best.t, state.mode)); }
+      if (best) { setPlaying(false); seek(comparisonCoordinate(entry, best.t)); }
       L.DomEvent.stopPropagation(event);
     }).addTo(routes);
     const end = sample(entry.track, entry.end);
@@ -312,15 +314,15 @@ function seek(value) { state.time = clamp(Number(value), state.domain.start, sta
 function updatePlayhead() {
   if (!teams.every(entry => entry.track)) return;
   const snapshots = teams.map(snapshot);
-  const shared = state.mode === 'elapsed' ? formatDuration(state.time) : clockText(teams[0], state.time - teams[0].track.epoch / 1000, true);
-  $('elapsed-label').textContent = axisTime(state.time); $('shared-time').textContent = shared;
+  const shared = clockText(teams[0], state.time - teams[0].track.epoch / 1000, true);
+  $('playhead-time').textContent = clockText(teams[0], state.time - teams[0].track.epoch / 1000); $('shared-time').textContent = shared;
   $('seek').value = state.time; $('seek').setAttribute('aria-valuetext', shared);
   snapshots.forEach((current, i) => {
     $('live-speed-' + i).textContent = speedText(current.speed);
-    $('live-distance-' + i).textContent = distanceText(current.distance) + ' · ' + formatDuration(current.elapsed);
+    $('live-distance-' + i).textContent = distanceText(current.distance);
     $('live-status-' + i).textContent = current.status === 'waiting' ? 'Waiting for selected start' : current.status === 'complete' ? 'Selected window complete' : current.point.gap ? 'GPS gap · last position held' : 'Replaying';
     markers[i]?.setLatLng([current.point.lat, current.point.lon]);
-    const active = current.status === 'waiting' ? -1 : activeSplitIndex(teamSplits[i], current.time);
+    const active = current.status === 'waiting' ? -1 : activeSplitIndex(teamSplits[i], current.time, CLOCK_TOLERANCE);
     if (active !== currentSplits[i]) {
       const old = document.querySelector('[data-team="' + i + '"][data-row="' + currentSplits[i] + '"]');
       if (old) { old.classList.remove(i ? 'current-women' : 'current-men'); old.querySelector('button')?.removeAttribute('aria-current'); old.querySelector('.current-label')?.remove(); }
@@ -368,7 +370,7 @@ function renderSplits() {
       if (part) {
         const button = document.createElement('button'); button.textContent = formatDuration(part.duration);
         button.setAttribute('aria-label', 'Seek ' + teams[i].name + ' ' + (state.unit === 'mi' ? 'mile ' : 'kilometer ') + row.n);
-        button.addEventListener('click', () => { setPlaying(false); seek(comparisonCoordinate(teams[i], part.start, state.mode)); });
+        button.addEventListener('click', () => { setPlaying(false); seek(comparisonCoordinate(teams[i], part.start)); });
         const avg = document.createElement('small'); avg.textContent = speedText(part.speed); td.append(button, avg);
         if (part.partial) { const label = document.createElement('span'); label.className = 'partial-label'; label.textContent = distanceText(part.distance) + ' partial'; td.append(label); }
       } else td.textContent = '—';
@@ -405,7 +407,7 @@ function renderCharts() {
       let path = '', drawing = false, previous = null;
       for (const p of values) {
         if (p.value == null) { drawing = false; previous = p; continue; }
-        if (kind === 'speed' && previous && teams[i].track.gaps.some(g => comparisonCoordinate(teams[i], g.start, state.mode) < p.time && comparisonCoordinate(teams[i], g.end, state.mode) > previous.time)) drawing = false;
+        if (kind === 'speed' && previous && teams[i].track.gaps.some(g => comparisonCoordinate(teams[i], g.start) < p.time && comparisonCoordinate(teams[i], g.end) > previous.time)) drawing = false;
         path += (drawing ? 'L' : 'M') + x(p.time).toFixed(2) + ',' + y(p.value).toFixed(2); drawing = true; previous = p;
       }
       markup += '<path d="' + path + '" fill="none" stroke="' + teams[i].color + '" stroke-width="2.4"' + (i ? ' stroke-dasharray="7 4"' : '') + ' stroke-linejoin="round"/>';
@@ -417,7 +419,7 @@ function renderCharts() {
 }
 function chartPoint(entry, t, kind) {
   const value = kind === 'speed' ? speedAt(entry.track, t, 30, entry.start, entry.end) : sample(entry.track, t).d - sample(entry.track, entry.start).d;
-  return { time: comparisonCoordinate(entry, t, state.mode), value: value == null ? null : kind === 'speed' ? speedValue(value, state.unit) : distanceValue(value, state.unit) };
+  return { time: comparisonCoordinate(entry, t), value: value == null ? null : kind === 'speed' ? speedValue(value, state.unit) : distanceValue(value, state.unit) };
 }
 function chartSeek(event, kind) {
   const svg = $('compare-' + kind + '-chart'), rect = svg.getBoundingClientRect(), g = chartGeometry[kind];
@@ -432,14 +434,13 @@ function openWindow(index) {
 }
 function updateTrimLabels() {
   const entry = teams[windowTeam];
-  for (const kind of ['start', 'end']) { const value = Number($('trim-' + kind).value); $('trim-' + kind + '-label').textContent = clockText(entry, value) + ' · +' + formatDuration(value); $('trim-' + kind).setAttribute('aria-valuetext', clockText(entry, value)); }
+  for (const kind of ['start', 'end']) { const value = Number($('trim-' + kind).value); $('trim-' + kind + '-label').textContent = clockText(entry, value); $('trim-' + kind).setAttribute('aria-valuetext', clockText(entry, value)); }
 }
 $('play').addEventListener('click', () => { if (state.time >= state.domain.end) seek(state.domain.start); setPlaying(!state.playing); });
 $('back').addEventListener('click', () => seek(state.time - 10)); $('forward').addEventListener('click', () => seek(state.time + 10));
 $('seek').addEventListener('input', event => seek(event.target.value));
 $('rate').addEventListener('change', event => { state.rate = Number(event.target.value); save(); });
 $('units').addEventListener('change', event => { const time = state.time; state.unit = event.target.value; save(); refresh(); seek(time); });
-$('sync-mode').addEventListener('change', event => { state.mode = event.target.value; save(); refresh(); });
 $('loop').addEventListener('click', () => { state.loop = !state.loop; $('loop').setAttribute('aria-pressed', String(state.loop)); });
 $('fit-map').addEventListener('click', () => { state.follow = false; $('follow').checked = false; fitMap(); });
 $('follow').addEventListener('change', event => { state.follow = event.target.checked; updatePlayhead(); });
@@ -490,7 +491,6 @@ function bootComparison() {
     const prefs = JSON.parse(localStorage.getItem('cpc:preferences') || '{}');
     if (['mi', 'km'].includes(prefs.unit)) state.unit = prefs.unit;
     if ([1, 10, 30, 60, 120, 300].includes(prefs.rate)) state.rate = prefs.rate;
-    if (localStorage.getItem('cpc:comparison-mode') === 'clock') state.mode = 'clock';
   } catch {}
   try {
     loadEntry(embeddedComparison.men, 0, 'Paddle Logger · Chattajack 2026', true);

@@ -82,12 +82,13 @@ export function splits(track, start, end, size = MILE) {
 }
 // Split intervals are half-open: an exact boundary belongs to the next split.
 // At the recording finish, keep the final (possibly partial) split highlighted.
-export function activeSplitIndex(rows, time) {
-  if (!rows.length || !Number.isFinite(time) || time < rows[0].start || time > rows.at(-1).end) return -1;
+export function activeSplitIndex(rows, time, tolerance = 0) {
+  if (!rows.length || !Number.isFinite(time) || time < rows[0].start - tolerance || time > rows.at(-1).end + tolerance) return -1;
+  const boundaryTime = Math.min(time + tolerance, rows.at(-1).end);
   let lo = 0, hi = rows.length;
   while (lo < hi) {
     const mid = (lo + hi) >>> 1;
-    if (time >= rows[mid].end) lo = mid + 1;
+    if (boundaryTime >= rows[mid].end) lo = mid + 1;
     else hi = mid;
   }
   return Math.min(lo, rows.length - 1);

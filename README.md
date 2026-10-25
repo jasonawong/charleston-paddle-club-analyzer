@@ -2,7 +2,7 @@
 
 A responsive GPX race replay for Charleston Paddle Club, including the men’s and women’s October 24, 2026 Chattajack recordings. The prebuilt app runs entirely in the browser and supports GitHub Pages without a backend, paid API, or API key.
 
-Version 1.1.0 adds a **Head-to-Head Analyzer** page for synchronized comparisons. Both pages use smaller, upright palmetto markers (28 pixels); the women’s comparison marker is red. The single-recording page places a clearly labeled Play/Pause button and the seek slider above the map on every screen size. The playback bar stays near the top while scrolling, with no fixed bottom player to be hidden by a phone browser’s bottom chrome. The interface focuses on the map, timeline, playback summary, and distance splits. The Coaching, Conditions, and Moments sections have been removed. On laptops the splits appear in the right column directly below the blue playback summary. The current split highlights automatically during playback and seeking.
+Version 1.1.1 uses actual clock time exclusively on the Head-to-Head Analyzer. Version 1.1.0 added a **Head-to-Head Analyzer** page for synchronized comparisons. Both pages use smaller, upright palmetto markers (28 pixels); the women’s comparison marker is red. The single-recording page places a clearly labeled Play/Pause button and the seek slider above the map on every screen size. The playback bar stays near the top while scrolling, with no fixed bottom player to be hidden by a phone browser’s bottom chrome. The interface focuses on the map, timeline, playback summary, and distance splits. The Coaching, Conditions, and Moments sections have been removed. On laptops the splits appear in the right column directly below the blue playback summary. The current split highlights automatically during playback and seeking.
 
 ## Open the download
 
@@ -37,7 +37,7 @@ Space toggles playback; left/right arrows seek ten seconds; Home/End jump to the
 Open `head-to-head.html`, or use the navigation above either page. The two club tracks load automatically.
 
 - Blue solid route and blue palmetto: men’s team. Red dashed route and red palmetto: women’s team. Small badges separate with short connectors when their map positions overlap.
-- **Elapsed time** aligns each selected start at zero; **Actual clock time** preserves the original GPS timestamps. These recordings started about 31 seconds apart. Teams wait before their selected start and hold their last position after their selected finish.
+- **Actual clock time** preserves the original GPS timestamps for shared playback, chart axes, and seeking. The synchronization selector has been removed; older alignment preferences are ignored. These recordings started about 31 seconds apart. Teams wait before their selected start and hold their last position after their selected finish.
 - Each team has its own **Set race window** and **Load GPX** controls. Name fields are editable. Trim staging and post-finish paddling before drawing race-performance conclusions.
 - Shared playback, speed controls, looping, and seeking update both markers, live readouts, speed and distance charts, and each team’s current split. Tap a route, drag either chart, or select a team’s split time to explore.
 - The table pairs one-mile or one-kilometer intervals measured from each selected start. It includes split duration and average speed. The time difference is red minus blue; unequal partial distances are not compared.
@@ -72,4 +72,4 @@ No package installation is needed. To preview over HTTP:
 
 Open http://127.0.0.1:4173. The Pages workflow rebuilds and tests automatically before deploying only runtime files.
 
-Tests cover timestamp cleanup, missing GPS coverage, disconnected segments, interpolation, race-window totals, full and partial splits, current-split boundary semantics, backwards seeking, real GPX regressions, classic-script packaging, startup recovery, UTC/elapsed comparison alignment, waiting and finished teams, matched split comparisons, variable recording intervals, and the real women’s recording.
+Tests cover timestamp cleanup, missing GPS coverage, disconnected segments, interpolation, race-window totals, full and partial splits, current-split boundary semantics, backwards seeking, real GPX regressions, classic-script packaging, startup recovery, UTC comparison alignment, waiting and finished teams, matched split comparisons, variable recording intervals, and the real women’s recording.

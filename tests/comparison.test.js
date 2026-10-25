@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { prepareTrack, sample, speedAt } from '../model.js';
-import { comparisonDomain, comparisonCoordinate, comparisonSnapshot, comparisonSplits } from '../comparison-model.js';
+import { prepareTrack, sample, speedAt, splits, activeSplitIndex } from '../model.js';
+import { CLOCK_TOLERANCE, comparisonDomain, comparisonCoordinate, comparisonSnapshot, comparisonSplits } from '../comparison-model.js';
 const read = f => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 function uniform(epoch, duration = 100, increment = .00002) {
   return prepareTrack(Array.from({ length: duration + 1 }, (_, t) => ({ lat: 35, lon: -85 + t * increment, time: epoch + t * 1000, segment: 0 })));
@@ -13,34 +13,34 @@ const entries = () => [
   { track: uniform(epoch), start: 10, end: 90 },
   { track: uniform(epoch + 31000, 120), start: 20, end: 120 }
 ];
-test('elapsed comparison lines up selected starts and holds the shorter recording at its selected finish', () => {
-  const e = entries(); assert.deepEqual(comparisonDomain(e), { start: 0, end: 100 });
-  assert.equal(comparisonSnapshot(e[0], 0).time, 10);
-  assert.equal(comparisonSnapshot(e[1], 0).time, 20);
-  assert.equal(comparisonSnapshot(e[0], 95).status, 'complete');
-  assert.equal(comparisonSnapshot(e[0], 95).time, 90);
-  assert.equal(comparisonSnapshot(e[0], 95).speed, null);
-  assert.equal(comparisonSnapshot(e[1], 95).status, 'active');
-  assert.equal(comparisonCoordinate(e[1], 45), 25);
+test('the shared clock domain keeps trimmed recording boundaries at their original UTC times', () => {
+  const e = entries();
+  assert.deepEqual(comparisonDomain(e), { start: epoch / 1000 + 10, end: epoch / 1000 + 151 });
+  const betweenFinishes = epoch / 1000 + 95;
+  assert.equal(comparisonSnapshot(e[0], betweenFinishes).status, 'complete');
+  assert.equal(comparisonSnapshot(e[0], betweenFinishes).time, 90);
+  assert.equal(comparisonSnapshot(e[0], betweenFinishes).speed, null);
+  assert.equal(comparisonSnapshot(e[1], betweenFinishes).status, 'active');
+  assert.equal(comparisonCoordinate(e[1], 45), epoch / 1000 + 76);
 });
 test('clock comparison preserves UTC timestamps, waits before the second start, and holds the final position', () => {
   const e = entries(), start = epoch / 1000 + 10;
-  assert.deepEqual(comparisonDomain(e, 'clock'), { start, end: epoch / 1000 + 151 });
-  const waiting = comparisonSnapshot(e[1], start, 'clock');
+  assert.deepEqual(comparisonDomain(e), { start, end: epoch / 1000 + 151 });
+  const waiting = comparisonSnapshot(e[1], start);
   assert.equal(waiting.status, 'waiting'); assert.equal(waiting.distance, 0); assert.equal(waiting.speed, null);
-  const t = comparisonCoordinate(e[1], 20, 'clock');
+  const t = comparisonCoordinate(e[1], 20);
   assert.equal(t - start, 41);
-  assert.equal(comparisonSnapshot(e[1], t, 'clock').time, 20);
-  assert.equal(comparisonSnapshot(e[0], t, 'clock').time, 51);
-  const done = comparisonSnapshot(e[0], epoch / 1000 + 151, 'clock');
+  assert.equal(comparisonSnapshot(e[1], t).time, 20);
+  assert.equal(comparisonSnapshot(e[0], t).time, 51);
+  const done = comparisonSnapshot(e[0], epoch / 1000 + 151);
   assert.equal(done.time, 90); assert.equal(done.point.lon, sample(e[0].track, 90).lon);
 });
-test('distance is rebased to each selected window in both synchronization modes', () => {
+test('distance is rebased to each selected window without resetting the comparison clock', () => {
   for (const e of entries()) {
-    assert.equal(comparisonSnapshot(e, 0).distance, 0);
-    assert.ok(Math.abs(comparisonSnapshot(e, 30).distance - (sample(e.track, e.start + 30).d - sample(e.track, e.start).d)) < 1e-9);
-    const x = comparisonCoordinate(e, e.start + 30, 'clock');
-    assert.equal(comparisonSnapshot(e, x, 'clock').distance, comparisonSnapshot(e, 30).distance);
+    const start = comparisonCoordinate(e, e.start);
+    assert.equal(comparisonSnapshot(e, start).distance, 0);
+    const x = comparisonCoordinate(e, e.start + 30);
+    assert.ok(Math.abs(comparisonSnapshot(e, x).distance - (sample(e.track, e.start + 30).d - sample(e.track, e.start).d)) < 1e-9);
   }
 });
 test('matched full splits have comparable durations but unequal partial distances do not', () => {
@@ -80,4 +80,24 @@ test('the second page is a relative classic-script entry with both complete reco
   assert.match(html, /href="\.\/index\.html"/);
   const workflow = read('.github/workflows/pages.yml');
   assert.match(workflow, /cp .*head-to-head\.html .*head-to-head\.bundle\.js/);
+});
+
+test('the comparison page offers only actual clock time and ignores old alignment preferences', () => {
+  const html = read('head-to-head.html'), source = read('head-to-head.js');
+  assert.ok(!html.includes('id="sync-mode"'));
+  assert.ok(!html.includes('Elapsed time'));
+  assert.ok(!source.includes('cpc:comparison-mode'));
+  assert.match(html, /Actual clock time/);
+  assert.match(source, /playhead-time/);
+});
+
+test('UTC round trips keep the selected split and finish stable with fractional GPS timestamps', () => {
+  const entry = { track: uniform(epoch + 56), start: 0, end: 100 };
+  const rows = splits(entry.track, entry.start, entry.end, 50);
+  rows.forEach((row, index) => {
+    const current = comparisonSnapshot(entry, comparisonCoordinate(entry, row.start));
+    assert.equal(activeSplitIndex(rows, current.time, CLOCK_TOLERANCE), index);
+  });
+  const finish = comparisonSnapshot(entry, comparisonCoordinate(entry, entry.end));
+  assert.equal(finish.status, 'complete'); assert.equal(finish.time, entry.end);
 });

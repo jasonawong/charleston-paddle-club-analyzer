@@ -1,22 +1,24 @@
 import { clamp, sample, speedAt, splits } from './model.js';
 
-// The clock axis uses UTC seconds; the elapsed axis starts at each selected window.
-export function comparisonDomain(entries, mode = 'elapsed') {
-  if (mode === 'clock') return {
+// UTC seconds lose sub-microsecond precision when converted back to track-relative time.
+export const CLOCK_TOLERANCE = 1e-6;
+
+// All comparison coordinates are absolute UTC seconds from the GPX timestamps.
+export function comparisonDomain(entries) {
+  return {
     start: Math.min(...entries.map(e => e.track.epoch / 1000 + e.start)),
     end: Math.max(...entries.map(e => e.track.epoch / 1000 + e.end))
   };
-  return { start: 0, end: Math.max(...entries.map(e => e.end - e.start)) };
 }
-export function comparisonCoordinate(entry, trackTime, mode = 'elapsed') {
-  return mode === 'clock' ? entry.track.epoch / 1000 + trackTime : trackTime - entry.start;
+export function comparisonCoordinate(entry, trackTime) {
+  return entry.track.epoch / 1000 + trackTime;
 }
-export function comparisonSnapshot(entry, coordinate, mode = 'elapsed') {
-  const rawTime = mode === 'clock' ? coordinate - entry.track.epoch / 1000 : entry.start + coordinate;
-  const time = clamp(rawTime, entry.start, entry.end);
+export function comparisonSnapshot(entry, coordinate) {
+  const rawTime = coordinate - entry.track.epoch / 1000;
+  const status = rawTime < entry.start - CLOCK_TOLERANCE ? 'waiting' : rawTime >= entry.end - CLOCK_TOLERANCE ? 'complete' : 'active';
+  const time = status === 'complete' ? entry.end : clamp(rawTime, entry.start, entry.end);
   const point = sample(entry.track, time);
-  const status = rawTime < entry.start ? 'waiting' : rawTime >= entry.end ? 'complete' : 'active';
-  return { point, time, elapsed: time - entry.start, distance: point.d - sample(entry.track, entry.start).d, status,
+  return { point, time, distance: point.d - sample(entry.track, entry.start).d, status,
     speed: status === 'active' ? speedAt(entry.track, time, 30, entry.start, entry.end) : null };
 }
 export function comparisonSplits(entries, size) {
