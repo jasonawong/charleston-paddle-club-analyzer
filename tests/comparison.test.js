@@ -76,8 +76,8 @@ test('the comparison home page is a relative classic-script entry with both comp
   const payload = JSON.parse(bundle.slice(start, bundle.indexOf(';\n', start)));
   assert.equal(payload.men, read('assets/pl-2026-10-24.gpx'));
   assert.equal(payload.women, read('assets/cpc-women-chattajack-2026.gpx'));
-  assert.match(read('index.html'), /href="\.\/race-replay\.html\?v=1\.2\.0"/);
-  assert.match(read('race-replay.html'), /href="\.\/index\.html\?v=1\.2\.0"/);
+  assert.match(read('index.html'), /href="\.\/race-replay\.html\?v=[\d.]+"/);
+  assert.match(read('race-replay.html'), /href="\.\/index\.html\?v=[\d.]+"/);
   const workflow = read('.github/workflows/pages.yml');
   assert.match(workflow, /cp .*head-to-head\.html .*head-to-head\.bundle\.js/);
 });

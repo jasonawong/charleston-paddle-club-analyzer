@@ -1,4 +1,4 @@
-# Verification record · version 1.2.0
+# Verification record · version 1.2.1
 
 Verified October 25, 2026.
 
@@ -38,7 +38,7 @@ Version 1.0.5 replaces the canoe drawing with a 40-pixel, club-blue palmetto tre
 
 - Both embedded GPX recordings load without local-file fetches or module imports. A shared parser handles the Paddle Logger and Garmin formats.
 - Actual clock time starts at the women’s earlier timestamp and shows the men waiting until their start. The comparison model checks the UTC offset and independent trimmed windows.
-- Both 28-pixel palmettos render in blue and red. Overlapping badges separate with short connectors; playback moves both positions and keeps trees upright.
+- Both 28-pixel palmettos render in blue and red; playback moves both positions and keeps trees upright. Version 1.2.1 centers the translucent icons directly on their GPS positions.
 - The speed and distance charts each contain two series. Clicking the speed chart seeks both tracks. Playback, pause, unit changes, and independent split highlights work.
 - At the final playhead, both teams are marked complete, positions hold, and the last split for each team remains highlighted. Unequal partials have no time delta.
 - Invalid race windows show an inline error. Editing the women’s start changed only her window, survived reload, and reset correctly to the full recording.
@@ -60,6 +60,10 @@ Head-to-Head Analyzer is served directly at `index.html`; it is first in the nav
 Race Replay embeds both complete GPX tracks. Selecting the women’s team loaded 32.17 miles, 4:29:41, 3,647 points, a red palmetto, and the correct team subtitle. Her Garmin recording uses a 15-second interpolation threshold, allowing normal sparse observations to produce speed. Selecting the men’s team restored 31.98 miles, 4:28:01, and a blue palmetto. Changing teams during playback paused and reset the replay. A two-second trim applied only to the women’s window; switching away and back, then reloading, preserved that window and the selected team. The full recording was restored after verification. Loading a separate GPX selected the Loaded GPX placeholder, and choosing a bundled team hid that placeholder again. The old comparison address redirected to index.html with its version query intact.
 
 Browser checks at 1280×900, 390×844, and 320×568 confirm the selector fits without horizontal overflow, with Play fully visible near 359 pixels from the top on the narrow phone. The home page remains synchronized by actual clock time. New tests cover the landing page, legacy redirect, selector options, deployment packaging, and both embedded tracks.
+
+## Translucent markers · 1.2.1
+
+Removed the collision offsets and connector markup from Head-to-Head Analyzer. Both pages now display 28-pixel palmettos at 65% opacity, centered on their recorded GPS positions, without a drop shadow. Overlapping teams keep their actual marker positions. Browser checks confirmed zero icon offsets, no CSS transforms or connector elements, and 0.65 opacity on both the comparison and Race Replay pages. No new console warnings or errors were observed; all 26 tests pass.
 
 ## Deployment boundary
 

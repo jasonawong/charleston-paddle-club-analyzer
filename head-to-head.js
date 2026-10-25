@@ -81,8 +81,7 @@ function initializeMap() {
   tiles.on('tileerror', () => { if (++tileErrors >= 3) { $('map-notice').hidden = false; $('map-notice').textContent = 'The basemap is unavailable. Both GPS routes, charts, and replay still work.'; } });
   tiles.on('tileload', () => { tileErrors = 0; $('map-notice').hidden = true; });
   routes = L.layerGroup().addTo(map);
-  markers = teams.map(entry => L.marker([0, 0], { icon: L.divIcon({ className: 'palmetto-marker', iconSize: [MARKER_SIZE, MARKER_SIZE], iconAnchor: [MARKER_SIZE / 2, MARKER_SIZE / 2], html: '<span class="marker-tether" aria-hidden="true"></span>' + palmettoMarkup(entry.color) }), keyboard: false, zIndexOffset: 1000 }).addTo(map));
-  map.on('zoomend', separateMarkers);
+  markers = teams.map(entry => L.marker([0, 0], { icon: L.divIcon({ className: 'palmetto-marker', iconSize: [MARKER_SIZE, MARKER_SIZE], iconAnchor: [MARKER_SIZE / 2, MARKER_SIZE / 2], html: palmettoMarkup(entry.color) }), keyboard: false, zIndexOffset: 1000 }).addTo(map));
   map.on('dragstart', () => { state.follow = false; $('follow').checked = false; });
 }
 function routeSegments(entry) {
@@ -121,18 +120,6 @@ function fitMap() {
   if (!map) return;
   const points = teams.flatMap(entry => routeSegments(entry).flat());
   if (points.length) { map.invalidateSize(); map.fitBounds(L.latLngBounds(points), { paddingTopLeft: [30, 110], paddingBottomRight: [30, 65], maxZoom: 15, animate: false }); }
-}
-function separateMarkers() {
-  if (!map || markers.length !== 2 || !markers.every(m => m.getElement())) return;
-  const points = markers.map(m => map.latLngToLayerPoint(m.getLatLng()));
-  const close = points[0].distanceTo(points[1]) < MARKER_SIZE + 4;
-  markers.forEach((marker, i) => {
-    const offset = close ? (i ? 17 : -17) : 0;
-    const element = marker.getElement(), shape = element.querySelector('.palmetto-shape'), tether = element.querySelector('.marker-tether');
-    shape.style.transform = 'translateX(' + offset + 'px)';
-    tether.style.display = close ? 'block' : 'none'; tether.style.width = Math.abs(offset) + 'px';
-    tether.style.left = (MARKER_SIZE / 2 + Math.min(0, offset)) + 'px'; tether.style.background = teams[i].color;
-  });
 }
 function setPlaying(playing) {
   state.playing = playing; cancelAnimationFrame(frame); lastFrame = 0;
@@ -182,7 +169,6 @@ function updatePlayhead() {
       currentSplits[i] = active;
     }
   });
-  separateMarkers();
   const diff = snapshots[1].distance - snapshots[0].distance;
   $('distance-difference').textContent = snapshots.some(s => s.status === 'waiting') ? 'Waiting for both starts' : Math.abs(diff) < 1 ? 'Even distance' : (diff > 0 ? teams[1].name : teams[0].name) + ' + ' + distanceText(Math.abs(diff));
   if (map && state.follow) {

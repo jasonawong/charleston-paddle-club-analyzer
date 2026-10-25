@@ -2,7 +2,7 @@
 
 A responsive GPX race replay for Charleston Paddle Club, including the men’s and women’s October 24, 2026 Chattajack recordings. The prebuilt app runs entirely in the browser and supports GitHub Pages without a backend, paid API, or API key.
 
-Version 1.2.0 opens **Head-to-Head Analyzer** as the home page, using actual clock time for synchronized comparisons. **Race Replay** has a team selector for the men’s and women’s bundled tracks and remembers the last selected team. Each recording keeps its own race window. Both pages use smaller upright palmettos: blue for men and red for women. Play/Pause and the seek slider stay above the map and near the top while scrolling. The single-track view includes its map, speed chart, playback summary, and highlighted splits.
+Version 1.2.1 opens **Head-to-Head Analyzer** as the home page, using actual clock time for synchronized comparisons. **Race Replay** has a team selector for the men’s and women’s bundled tracks and remembers the last selected team. Each recording keeps its own race window. Both pages use smaller upright palmettos: blue for men and red for women. Play/Pause and the seek slider stay above the map and near the top while scrolling. The single-track view includes its map, speed chart, playback summary, and highlighted splits.
 
 ## Open the download
 
@@ -38,7 +38,7 @@ Space toggles playback; left/right arrows seek ten seconds; Home/End jump to the
 
 Open `index.html` (the home page), or use the Head-to-Head Analyzer link above either page. The two club tracks load automatically.
 
-- Blue solid route and blue palmetto: men’s team. Red dashed route and red palmetto: women’s team. Small badges separate with short connectors when their map positions overlap.
+- Blue solid route and blue palmetto: men’s team. Red dashed route and red palmetto: women’s team. Translucent palmettos stay centered directly on their GPS positions, including when they overlap.
 - **Actual clock time** preserves the original GPS timestamps for shared playback, chart axes, and seeking. The synchronization selector has been removed; older alignment preferences are ignored. These recordings started about 31 seconds apart. Teams wait before their selected start and hold their last position after their selected finish.
 - Each team has its own **Set race window** and **Load GPX** controls. Name fields are editable. Trim staging and post-finish paddling before drawing race-performance conclusions.
 - Shared playback, speed controls, looping, and seeking update both markers, live readouts, speed and distance charts, and each team’s current split. Tap a route, drag either chart, or select a team’s split time to explore.

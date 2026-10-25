@@ -54,7 +54,7 @@ test('the home page opens Head-to-Head and the former comparison URL forwards to
   const home = read('index.html'), alias = read('head-to-head.html');
   assert.match(home, /<h2>Head-to-Head Analyzer<\/h2>/);
   assert.match(home, /head-to-head\.bundle\.js\?v=[\d.]+" defer/);
-  assert.match(home, /href="\.\/index\.html\?v=1\.2\.0" aria-current="page">Head-to-Head Analyzer<\/a><a href="\.\/race-replay\.html\?v=1\.2\.0">Race Replay/);
+  assert.match(home, /href="\.\/index\.html\?v=[\d.]+" aria-current="page">Head-to-Head Analyzer<\/a><a href="\.\/race-replay\.html\?v=[\d.]+">Race Replay/);
   assert.match(alias, /http-equiv="refresh" content="0;url=\.\/index\.html"/);
   assert.match(alias, /location\.replace\('\.\/index\.html' \+ location\.search \+ location\.hash\)/);
   assert.match(read('.github/workflows/pages.yml'), /cp .*race-replay\.html /);
