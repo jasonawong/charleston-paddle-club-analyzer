@@ -8,7 +8,7 @@
   <title>Charleston Paddle Club Analyzer</title>
   <link rel="icon" href="./assets/cpc-logo.png" type="image/png">
   <link rel="stylesheet" href="./vendor/leaflet.css">
-  <link rel="stylesheet" href="./styles.css?v=1.0.5">
+  <link rel="stylesheet" href="./styles.css?v=1.1.0">
   <script id="startup-guard">
     (function () {
       var ready = false, failure = '';
@@ -37,7 +37,7 @@
     })();
   </script>
   <script src="./vendor/leaflet.js" defer></script>
-  <script src="./app.bundle.js?v=1.0.5" defer onerror="CPCStartup.fail('The application file is missing. Re-extract the complete download, keeping index.html and app.bundle.js together.')"></script>
+  <script src="./app.bundle.js?v=1.1.0" defer onerror="CPCStartup.fail('The application file is missing. Re-extract the complete download, keeping index.html and app.bundle.js together.')"></script>
 </head>
 <body>
   <a class="skip-link" href="#replay">Skip to replay</a>
@@ -45,6 +45,7 @@
     <div class="brand"><img src="./assets/cpc-logo.png" width="64" height="64" alt="Charleston Paddle Club logo"><div><h1>Charleston Paddle Club <span>Analyzer</span></h1><p>Every mile tells a story.</p></div></div>
     <div class="header-actions"><label class="button upload-button" for="gpx-file"><span aria-hidden="true">↥</span> Load GPX</label><input id="gpx-file" type="file" accept=".gpx,application/gpx+xml,application/xml,text/xml" class="visually-hidden"><button id="help-button" class="icon-button" aria-label="Open replay help">?</button></div>
   </header>
+  <nav class="page-nav" aria-label="Analyzer pages"><a href="./index.html" aria-current="page">Race Replay</a><a href="./head-to-head.html">Head-to-Head Analyzer</a></nav>
   <main id="replay">
     <section class="race-heading" aria-label="Race overview">
       <div><div class="eyebrow"><span class="live-dot"></span> THE RACE ROOM <span class="edition">01 / REPLAY</span></div><h2 id="race-title">Chattajack 2026</h2><p id="race-subtitle">Men’s team · Tennessee River Gorge · October 24, 2026</p></div>

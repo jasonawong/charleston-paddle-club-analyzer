@@ -1,10 +1,10 @@
-# Verification record · version 1.0.5
+# Verification record · version 1.1.0
 
-Verified October 24, 2026.
+Verified October 25, 2026.
 
 ## Automated checks
 
-All 15 tests pass. JavaScript source and browser-bundle syntax checks pass.
+All 22 tests pass. JavaScript source and browser-bundle syntax checks pass.
 
 Coverage includes duplicate/out-of-order timestamps, invalid track data, interpolation, missing GPS coverage, disconnected segments, rebased race windows, full/partial distance splits, exact current-split boundaries, backwards seeking, final-finish handling, actual Chattajack regression checks, classic-script packaging, embedded race data, and startup error recovery.
 
@@ -33,6 +33,19 @@ Verified in portrait viewports of 320×568 and 390×650, plus a 1280×800 laptop
 ## Palmetto marker verification
 
 Version 1.0.5 replaces the canoe drawing with a 40-pixel, club-blue palmetto tree on a white circular badge. In the browser, playback advanced the marker along the route while the tree stayed upright; pausing and changing playback speed continued to work. No browser warnings or errors were observed. All 15 existing tests and JavaScript syntax checks pass.
+
+## Head-to-Head verification · 1.1.0
+
+- Both embedded GPX recordings load without local-file fetches or module imports. A shared parser handles the Paddle Logger and Garmin formats.
+- Elapsed mode aligns selected starts. Clock mode starts at the women’s earlier timestamp and shows the men waiting until their start. The comparison model checks the UTC offset and independent trimmed windows.
+- Both 28-pixel palmettos render in blue and red. Overlapping badges separate with short connectors; playback moves both positions and keeps trees upright.
+- The speed and distance charts each contain two series. Clicking the speed chart seeks both tracks. Playback, pause, unit changes, and independent split highlights work.
+- At the final playhead, both teams are marked complete, positions hold, and the last split for each team remains highlighted. Unequal partials have no time delta.
+- Invalid race windows show an inline error. Editing the women’s start changed only her window, survived reload, and reset correctly to the full recording.
+- Replacing the blue track with the women’s GPX updated its statistics and comparison subtitle. A malformed replacement GPX showed an error while preserving both existing tracks. Reload restored the two default recordings.
+- Navigation to the original Race Replay page loads its track and smaller marker successfully.
+- Responsive checks at 1280×900, 390×844, and 320×568: no horizontal page overflow. At both portrait widths, Play appears at about 294 pixels from the top on initial navigation and remains at the top while scrolling. Both team highlights and the full table fit the narrow layout. These are browser viewport checks, not physical iPhone tests.
+- The women’s 3,647-point track spans 16,181 seconds and approximately 32.17151 miles. The 15-second comparison gap threshold allows its normal Garmin sampling intervals to produce speed estimates; actual larger gaps remain blank. The original single-track gap behavior passes its existing regression tests.
 
 ## Deployment boundary
 

@@ -11,7 +11,7 @@ export function lowerBound(points, value, key = 't') {
   while (lo < hi) { const mid = (lo + hi) >>> 1; if (points[mid][key] < value) lo = mid + 1; else hi = mid; }
   return lo;
 }
-export function prepareTrack(raw, name = 'Your paddle') {
+export function prepareTrack(raw, name = 'Your paddle', { gapThreshold = 5 } = {}) {
   let invalid = 0, duplicates = 0, outOfOrder = 0;
   const points = [];
   for (const p of raw) {
@@ -37,19 +37,19 @@ export function prepareTrack(raw, name = 'Your paddle') {
       const prev = points[i - 1], dt = p.t - prev.t;
       const disconnected = p.segment !== prev.segment || dt > 30;
       if (!disconnected) distance += haversine(prev, p);
-      if (dt > 5 || disconnected) gaps.push({ start: prev.t, end: p.t, disconnected });
+      if (dt > gapThreshold || disconnected) gaps.push({ start: prev.t, end: p.t, disconnected });
     }
     p.d = distance;
   });
   const duration = points.at(-1).t;
   if (duration < 5 || distance < 10) throw new Error('This recording is too short to analyze (at least 5 seconds and 10 meters required).');
-  return { name, points, epoch, duration, distance, gaps, quality: { invalid, duplicates, outOfOrder } };
+  return { name, points, epoch, duration, distance, gaps, gapThreshold, quality: { invalid, duplicates, outOfOrder } };
 }
 export function sample(track, t) {
   t = clamp(t, 0, track.duration);
   const i = Math.min(track.points.length - 1, lowerBound(track.points, t));
   const b = track.points[i], a = track.points[Math.max(0, i - 1)];
-  const gap = b.t - a.t > 5 || b.segment !== a.segment;
+  const gap = b.t - a.t > (track.gapThreshold ?? 5) || b.segment !== a.segment;
   const f = b.t === a.t ? 0 : (t - a.t) / (b.t - a.t);
   // During missing GPS observations, hold the last fix rather than animate an invented path.
   const posF = gap && t < b.t ? 0 : f;

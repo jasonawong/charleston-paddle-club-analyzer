@@ -1,4 +1,6 @@
-import { MILE, clamp, haversine, prepareTrack, sample, speedAt, timeAtDistance, segmentStats, splits, activeSplitIndex, formatDuration, distanceValue, speedValue } from './model.js';
+import { MILE, clamp, haversine, sample, speedAt, timeAtDistance, segmentStats, splits, activeSplitIndex, formatDuration, distanceValue, speedValue } from './model.js';
+import { parseGPX } from './gpx.js';
+import { palmettoMarkup, MARKER_SIZE } from './palmetto.js';
 
 const $ = id => document.getElementById(id);
 const state = { track: null, time: 0, start: 0, end: 1, confirmed: false, playing: false, rate: 60, unit: 'mi', follow: false, loop: false, selection: null, selectMode: false, timeZone: 'America/New_York', regional: false };
@@ -40,21 +42,6 @@ function restore() {
     }
   } catch { /* A damaged or disabled browser store must not prevent replay. */ }
 }
-function parseGPX(xml) {
-  const doc = new DOMParser().parseFromString(xml, 'application/xml');
-  if (doc.querySelector('parsererror') || doc.documentElement.localName !== 'gpx') throw new Error('That file is not valid GPX XML. Choose a GPX export with coordinates and timestamps.');
-  const raw = [], segments = [...doc.getElementsByTagNameNS('*', 'trkseg')];
-  if (!segments.length) throw new Error('No track segments found. Export a recorded track with timestamps from Paddle Logger.');
-  segments.forEach((segment, index) => {
-    for (const node of segment.getElementsByTagNameNS('*', 'trkpt')) {
-      const time = node.getElementsByTagNameNS('*', 'time')[0]?.textContent;
-      const lat = node.getAttribute('lat'), lon = node.getAttribute('lon');
-      raw.push({ lat: lat === null ? NaN : Number(lat), lon: lon === null ? NaN : Number(lon), time: Date.parse(time), segment: index });
-    }
-  });
-  if (raw.length > 200000) throw new Error('This first version supports up to 200,000 GPS points per recording.');
-  return prepareTrack(raw, doc.getElementsByTagNameNS('*', 'trk')[0]?.getElementsByTagNameNS('*', 'name')[0]?.textContent?.slice(0, 120) || 'Your paddle');
-}
 function contentKey(xml) {
   let h = 2166136261;
   for (let i = 0; i < xml.length; i++) h = Math.imul(h ^ xml.charCodeAt(i), 16777619);
@@ -91,7 +78,7 @@ function initializeMap() {
   tiles.on('tileload', () => { tileErrors = 0; $('map-notice').hidden = true; });
   progressLine = L.polyline([], { color: '#173e73', weight: 10, opacity: .16, interactive: false }).addTo(map);
   routeLayer = L.layerGroup().addTo(map); selectionLayer = L.layerGroup().addTo(map); boundaryLayer = L.layerGroup().addTo(map);
-  const icon = L.divIcon({ className: 'palmetto-marker', iconSize: [40, 40], iconAnchor: [20, 20], html: '<div class="palmetto-shape"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="19" fill="white" stroke="#173e73" stroke-width="1.5"/><g fill="#173e73"><path d="M19 16h3l1 17h-7c3-5 4-11 3-17Z"/><path d="M20 17C14 8 8 10 6 15c5-2 9-1 14 2ZM20 17C14 5 8 5 7 10c5 0 8 3 13 7ZM20 17C18 5 13 3 11 7c4 2 6 5 9 10ZM20 17C17 8 17 3 20 3c3 4 2 9 0 14ZM20 17C22 5 27 3 29 7c-4 2-6 5-9 10ZM20 17C26 5 32 5 33 10c-5 0-8 3-13 7ZM20 17C26 8 32 10 34 15c-5-2-9-1-14 2ZM20 17C12 13 7 17 8 21c4-4 7-4 12-4ZM20 17C28 13 33 17 32 21c-4-4-7-4-12-4Z"/></g><path d="m19 23 3 1m-4 4 4 1" stroke="white" stroke-width="1"/></svg></div>' });
+  const icon = L.divIcon({ className: 'palmetto-marker', iconSize: [MARKER_SIZE, MARKER_SIZE], iconAnchor: [MARKER_SIZE / 2, MARKER_SIZE / 2], html: palmettoMarkup() });
   canoe = L.marker([0, 0], { icon, keyboard: false, zIndexOffset: 1000, title: 'Palmetto tree at replay position' }).addTo(map);
   map.on('dragstart', () => { state.follow = false; $('follow').checked = false; });
   map.on('click', event => {

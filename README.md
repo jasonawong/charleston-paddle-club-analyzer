@@ -1,12 +1,12 @@
 # Charleston Paddle Club Analyzer
 
-A responsive GPX race replay for Charleston Paddle Club, including the men's team's October 24, 2026 Chattajack recording. The prebuilt app runs entirely in the browser and supports GitHub Pages without a backend, paid API, or API key.
+A responsive GPX race replay for Charleston Paddle Club, including the men’s and women’s October 24, 2026 Chattajack recordings. The prebuilt app runs entirely in the browser and supports GitHub Pages without a backend, paid API, or API key.
 
-Version 1.0.5 uses an upright palmetto tree marker for the replay position. It also places a clearly labeled Play/Pause button and the seek slider above the map on every screen size. The playback bar stays near the top while scrolling, with no fixed bottom player to be hidden by a phone browser’s bottom chrome. The interface focuses on the map, timeline, playback summary, and distance splits. The Coaching, Conditions, and Moments sections have been removed. On laptops the splits appear in the right column directly below the blue playback summary. The current split highlights automatically during playback and seeking.
+Version 1.1.0 adds a **Head-to-Head Analyzer** page for synchronized comparisons. Both pages use smaller, upright palmetto markers (28 pixels); the women’s comparison marker is red. The single-recording page places a clearly labeled Play/Pause button and the seek slider above the map on every screen size. The playback bar stays near the top while scrolling, with no fixed bottom player to be hidden by a phone browser’s bottom chrome. The interface focuses on the map, timeline, playback summary, and distance splits. The Coaching, Conditions, and Moments sections have been removed. On laptops the splits appear in the right column directly below the blue playback summary. The current split highlights automatically during playback and seeking.
 
 ## Open the download
 
-Extract the entire ZIP and open `index.html` in Chrome or another modern browser. Keep `app.bundle.js`, `styles.css`, `assets/`, and `vendor/` beside it. A classic browser bundle contains the full recording, so opening the file does not require module imports or local-file requests. Startup failures display a recovery message instead of an endless loading screen. Online map tiles require internet access.
+Extract the entire ZIP and open `index.html` in Chrome or another modern browser. Keep both HTML files, both browser bundles, `styles.css`, `assets/`, and `vendor/` together. Use the page navigation to switch between Race Replay and Head-to-Head Analyzer. A classic browser bundle contains the full recording, so opening the file does not require module imports or local-file requests. Startup failures display a recovery message instead of an endless loading screen. Online map tiles require internet access.
 
 ## Publish on GitHub Pages
 
@@ -16,7 +16,7 @@ Extract the entire ZIP and open `index.html` in Chrome or another modern browser
 4. Open **Actions → Test and deploy to GitHub Pages → Run workflow** and choose `main`.
 5. After success, share the URL displayed in **Settings → Pages**. Subsequent pushes to `main` automatically rebuild, test, and publish the app.
 
-The workflow already exists; no suggested workflow template is needed. Assets use relative URLs, so both project URLs and custom domains work. Publishing makes the bundled recording publicly downloadable. GPX files loaded by visitors are parsed locally and are never uploaded by the app.
+The workflow already exists; no suggested workflow template is needed. Assets use relative URLs, so both project URLs and custom domains work. Publishing makes both bundled recordings publicly downloadable. The women’s public example retains replay coordinates and timestamps; unused heart-rate extensions are omitted. GPX files loaded by visitors are parsed locally and are never uploaded by the app.
 
 ## Explore the race
 
@@ -31,6 +31,19 @@ The workflow already exists; no suggested workflow template is needed. Assets us
 - **Load GPX** accepts timed tracks from Paddle Logger and other exporters, up to 25 MB / 200,000 fixes. Untimed routes cannot be replayed. Recordings near Chattanooga use America/New_York; others use the browser's timezone.
 
 Space toggles playback; left/right arrows seek ten seconds; Home/End jump to the selected window's boundaries. Sliders also have native keyboard controls. Playback pauses when the tab is hidden. Follow the canoe or fit the selected route with the map controls.
+
+## Head-to-Head Analyzer
+
+Open `head-to-head.html`, or use the navigation above either page. The two club tracks load automatically.
+
+- Blue solid route and blue palmetto: men’s team. Red dashed route and red palmetto: women’s team. Small badges separate with short connectors when their map positions overlap.
+- **Elapsed time** aligns each selected start at zero; **Actual clock time** preserves the original GPS timestamps. These recordings started about 31 seconds apart. Teams wait before their selected start and hold their last position after their selected finish.
+- Each team has its own **Set race window** and **Load GPX** controls. Name fields are editable. Trim staging and post-finish paddling before drawing race-performance conclusions.
+- Shared playback, speed controls, looping, and seeking update both markers, live readouts, speed and distance charts, and each team’s current split. Tap a route, drag either chart, or select a team’s split time to explore.
+- The table pairs one-mile or one-kilometer intervals measured from each selected start. It includes split duration and average speed. The time difference is red minus blue; unequal partial distances are not compared.
+- Distance difference compares distance along each separate track; it is not an official course gap. Full-recording durations are not official race results.
+- The women’s Garmin export uses variable 1–11 second recording intervals. The comparison page interpolates observations up to 15 seconds apart; larger gaps hold the last position and receive no speed. The single-track page retains its original five-second gap policy. Both use 30-second smoothed ground speed.
+- Loaded files stay in browser memory and reset on reload. Names and race windows save per recording in this browser, separately from Race Replay’s saved windows.
 
 ## Calculation details
 
@@ -48,7 +61,7 @@ Race boundaries save in browser storage, which can be cleared or unavailable in 
 
 ## Development and verification
 
-The download is prebuilt. After editing `app.js`, `model.js`, or the bundled recording, regenerate the classic browser bundle with Node 20+:
+The download is prebuilt. After editing either page’s JavaScript sources or the bundled recordings, regenerate both classic browser bundles with Node 20+:
 
     npm run build
     npm test
@@ -59,4 +72,4 @@ No package installation is needed. To preview over HTTP:
 
 Open http://127.0.0.1:4173. The Pages workflow rebuilds and tests automatically before deploying only runtime files.
 
-Tests cover timestamp cleanup, missing GPS coverage, disconnected segments, interpolation, race-window totals, full and partial splits, current-split boundary semantics, backwards seeking, real GPX regressions, classic-script packaging, and startup recovery.
+Tests cover timestamp cleanup, missing GPS coverage, disconnected segments, interpolation, race-window totals, full and partial splits, current-split boundary semantics, backwards seeking, real GPX regressions, classic-script packaging, startup recovery, UTC/elapsed comparison alignment, waiting and finished teams, matched split comparisons, variable recording intervals, and the real women’s recording.

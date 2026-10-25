@@ -28,11 +28,15 @@ jobs:
           node --check app.js
           node --check app.bundle.js
           node --check model.js
+          node --check gpx.js
+          node --check comparison-model.js
+          node --check head-to-head.js
+          node --check head-to-head.bundle.js
           node --test tests/*.test.js
       - name: Prepare the static site
         run: |
           mkdir -p _site/assets _site/vendor
-          cp index.html styles.css app.bundle.js .nojekyll _site/
+          cp index.html head-to-head.html styles.css app.bundle.js head-to-head.bundle.js .nojekyll _site/
           cp -R assets/. _site/assets/
           cp -R vendor/. _site/vendor/
       - uses: actions/configure-pages@v5

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#17244f">
+  <meta name="description" content="Compare two GPX tracks with synchronized replay, speed and distance charts, and matched splits.">
+  <title>Head-to-Head Analyzer · Charleston Paddle Club</title>
+  <link rel="icon" href="./assets/cpc-logo.png" type="image/png">
+  <link rel="stylesheet" href="./vendor/leaflet.css">
+  <link rel="stylesheet" href="./styles.css?v=1.1.0">
+  <script id="startup-guard">
+    (function () {
+      var ready = false, failure = '';
+      function showFailure(message) {
+        if (ready) return;
+        failure = message;
+        var loading = document.getElementById('loading');
+        var error = document.getElementById('load-error');
+        if (loading) loading.hidden = true;
+        if (error) { error.textContent = message; error.hidden = false; }
+      }
+      var timer = setTimeout(function () {
+        showFailure('The app could not finish starting. Re-extract the complete download and reopen head-to-head.html. If you are using a hosted copy, reload the page or check that head-to-head.bundle.js was uploaded.');
+      }, 15000);
+      window.CPCStartup = {
+        ready: function () { ready = true; clearTimeout(timer); },
+        fail: function (message) { clearTimeout(timer); showFailure(message); }
+      };
+      window.addEventListener('error', function (event) {
+        if (!ready && event.message) window.CPCStartup.fail('The app could not start: ' + event.message + '. Re-extract the complete download and try again.');
+      });
+      window.addEventListener('unhandledrejection', function (event) {
+        if (!ready) window.CPCStartup.fail('The app could not start: ' + String(event.reason && event.reason.message || event.reason));
+      });
+      document.addEventListener('DOMContentLoaded', function () { if (failure) showFailure(failure); });
+    })();
+  </script>
+  <script src="./vendor/leaflet.js" defer></script>
+  <script src="./head-to-head.bundle.js?v=1.1.0" defer onerror="CPCStartup.fail('The application file is missing. Re-extract the complete download, keeping index.html and head-to-head.bundle.js together.')"></script>
+</head>
+<body class="comparison-page">
+  <a class="skip-link" href="#replay">Skip to comparison</a>
+  <header class="app-header">
+    <div class="brand"><img src="./assets/cpc-logo.png" width="64" height="64" alt="Charleston Paddle Club logo"><div><h1>Charleston Paddle Club <span>Analyzer</span></h1><p>Two crews. One river.</p></div></div>
+    <button id="help-button" class="icon-button" aria-label="Open comparison help">?</button>
+  </header>
+  <nav class="page-nav" aria-label="Analyzer pages"><a href="./index.html">Race Replay</a><a href="./head-to-head.html" aria-current="page">Head-to-Head Analyzer</a></nav>
+  <main id="replay">
+    <section class="race-heading" aria-label="Comparison overview"><div><div class="eyebrow"><span class="live-dot"></span> THE RACE ROOM <span class="edition">02 / COMPARE</span></div><h2>Head-to-Head Analyzer</h2><p id="comparison-subtitle">Chattajack 2026 · Charleston Paddle Club · October 24, 2026</p></div><label class="units-label">Units<select id="units" aria-label="Distance and speed units"><option value="mi">mi / mph</option><option value="km">km / km/h</option></select></label></section>
+    <section class="replay-controls" aria-label="Shared playback">
+      <div class="playback-bar" role="group" aria-label="Playback controls"><div class="transport"><button id="back" class="icon-button" aria-label="Back 10 seconds">↶<small>10</small></button><button id="play" class="play-button" aria-label="Play comparison" disabled><span id="play-symbol" aria-hidden="true">▶</span><span id="play-label">Play</span></button><button id="forward" class="icon-button" aria-label="Forward 10 seconds">↷<small>10</small></button><label class="rate-label"><span class="visually-hidden">Playback speed</span><select id="rate" aria-label="Playback speed"><option value="1">1×</option><option value="10">10×</option><option value="30">30×</option><option value="60" selected>60×</option><option value="120">120×</option><option value="300">300×</option></select></label></div><button id="loop" class="text-button" aria-pressed="false">↻ Loop</button></div>
+      <div class="seek-row"><span id="elapsed-label">0:00</span><input id="seek" type="range" min="0" max="1" value="0" step="1" aria-label="Seek both tracks"><span id="remaining-label">—</span></div>
+    </section>
+    <div id="load-error" class="error-banner" role="alert" hidden></div>
+    <section class="comparison-settings" aria-label="Synchronize recordings"><label for="sync-mode">Synchronize by<select id="sync-mode"><option value="elapsed">Elapsed time</option><option value="clock">Actual clock time</option></select></label><p id="sync-explanation">Both selected starts line up at 0:00. Adjust each race window to exclude staging.</p></section>
+    <section class="team-cards" aria-label="Team recordings">
+      <article class="team-card team-men"><div class="team-card-top"><label class="team-title"><span class="team-dot" aria-hidden="true"></span><input id="team-name-0" value="Men’s team" maxlength="60" aria-label="Name for blue team"></label><label class="text-button load-team" for="file-0">↥ Load GPX</label><input id="file-0" type="file" accept=".gpx,application/gpx+xml,application/xml,text/xml" class="visually-hidden"></div><p id="file-info-0" class="file-info">Loading recording…</p><dl class="team-stats"><div><dt>Distance</dt><dd id="team-distance-0">—</dd></div><div><dt>Window time</dt><dd id="team-duration-0">—</dd></div><div><dt>Average</dt><dd id="team-average-0">—</dd></div></dl><div class="team-window"><span id="window-label-0">Full recording</span><button id="window-button-0" class="text-button">Set race window</button></div></article>
+      <article class="team-card team-women"><div class="team-card-top"><label class="team-title"><span class="team-dot" aria-hidden="true"></span><input id="team-name-1" value="Women’s team" maxlength="60" aria-label="Name for red team"></label><label class="text-button load-team" for="file-1">↥ Load GPX</label><input id="file-1" type="file" accept=".gpx,application/gpx+xml,application/xml,text/xml" class="visually-hidden"></div><p id="file-info-1" class="file-info">Loading recording…</p><dl class="team-stats"><div><dt>Distance</dt><dd id="team-distance-1">—</dd></div><div><dt>Window time</dt><dd id="team-duration-1">—</dd></div><div><dt>Average</dt><dd id="team-average-1">—</dd></div></dl><div class="team-window"><span id="window-label-1">Full recording</span><button id="window-button-1" class="text-button">Set race window</button></div></article>
+    </section>
+    <div class="comparison-workspace">
+      <section class="comparison-route" aria-label="Map and comparison charts">
+        <div class="map-shell"><div id="map" aria-label="Map of both GPX tracks"></div><div class="map-topline"><div class="map-location"><span class="eyebrow">TWO LINES, ONE RIVER</span><strong>Track comparison</strong><div class="team-legend"><span><i class="legend-men"></i><span id="legend-men">Men’s team</span></span><span><i class="legend-women"></i><span id="legend-women">Women’s team</span></span></div></div><button id="fit-map" class="map-button" aria-label="Fit both routes">↗ <span>Both routes</span></button></div><div class="map-bottomline"><span class="map-legend">Small palmettos mark the replay positions</span><label class="follow-control"><input id="follow" type="checkbox"> Follow both</label></div><div id="map-notice" class="map-notice" role="status" hidden></div></div>
+        <section class="timeline" aria-label="Speed comparison"><div class="section-heading"><div><span class="eyebrow">PACE TO PACE</span><h3>Speed comparison</h3></div><span class="chart-instruction">Tap or drag to seek</span></div><p id="speed-caption" class="chart-caption">Both teams · 30-second smoothing</p><svg id="compare-speed-chart" class="comparison-chart" role="img" tabindex="0" aria-label="Speed comparison. Left and right arrow keys seek ten seconds."></svg></section>
+        <section class="timeline" aria-label="Distance comparison"><div class="section-heading"><div><span class="eyebrow">PROGRESS ALONG THE TRACK</span><h3>Distance comparison</h3></div><span class="chart-instruction">Tap or drag to seek</span></div><p class="chart-caption">Distance from each selected start · blue solid / red dashed</p><svg id="compare-distance-chart" class="comparison-chart" role="img" tabindex="0" aria-label="Distance comparison. Left and right arrow keys seek ten seconds."></svg></section>
+        <p class="data-note comparison-note">Full recordings include staging and post-finish paddling. Distances follow each GPS track and may differ; these comparisons are not official results. Variable recording intervals up to 15 seconds are interpolated; larger gaps have no speed estimate.</p>
+      </section>
+      <aside class="comparison-inspector" aria-label="Live comparison and splits">
+        <section class="comparison-live"><span class="eyebrow">AT THE SHARED PLAYHEAD</span><strong id="shared-time">0:00</strong><div class="live-team men-live"><span id="live-name-0">Men’s team</span><strong id="live-speed-0">—</strong><span id="live-distance-0">—</span><small id="live-status-0">Ready</small></div><div class="live-team women-live"><span id="live-name-1">Women’s team</span><strong id="live-speed-1">—</strong><span id="live-distance-1">—</span><small id="live-status-1">Ready</small></div><div class="distance-difference"><span>Distance difference</span><strong id="distance-difference">Even</strong><p id="difference-note">At the same elapsed time</p></div></section>
+        <section class="comparison-splits" aria-labelledby="comparison-splits-title"><div class="splits-heading"><span class="eyebrow">SIDE BY SIDE</span><h3 id="comparison-splits-title">Distance splits</h3><p>Tap a team’s split to seek both tracks. Highlight follows each team.</p></div><div class="comparison-table-scroll"><table aria-label="Team split comparison"><thead><tr><th scope="col">Split</th><th scope="col" class="men-text" id="men-column">Men</th><th scope="col" class="women-text" id="women-column">Women</th><th scope="col">Δ time</th></tr></thead><tbody id="comparison-splits-body"></tbody></table></div><p class="data-note split-note">Δ = red time minus blue time. Positive: red took longer. Unequal partial distances show no time difference. Average speed appears below each time.</p></section>
+      </aside>
+    </div>
+    <footer><span>CHARLESTON PADDLE CLUB <span class="footer-dot">•</span> Built for the crew.</span><span>Loaded GPX files stay in your browser. <button id="footer-help" class="inline-button">How comparisons work</button></span></footer>
+  </main>
+  <div id="loading" class="loading"><img src="./assets/cpc-logo.png" width="88" height="88" alt="Charleston Paddle Club logo"><strong>Two crews. One river.</strong><span>Loading both Chattajack recordings</span><noscript>Enable JavaScript to compare tracks.</noscript></div>
+  <dialog id="window-dialog" aria-labelledby="window-dialog-title"><form id="window-form"><div class="dialog-header"><div><span class="eyebrow" id="window-team-name">TEAM WINDOW</span><h2 id="window-dialog-title">Line up the race.</h2></div><button type="button" class="icon-button" data-close="window-dialog" aria-label="Close race window">×</button></div><p>Trim staging and post-finish paddling for this team. Elapsed-time replay lines up the selected starts; actual-clock replay preserves their real timestamp difference.</p><label class="trim-field" for="trim-start"><span>Selected start <strong id="trim-start-label"></strong></span><input id="trim-start" type="range" min="0" max="1" step="1"></label><button type="button" id="start-at-playhead" class="text-button">Use this team’s playhead as start</button><label class="trim-field" for="trim-end"><span>Selected finish <strong id="trim-end-label"></strong></span><input id="trim-end" type="range" min="0" max="1" step="1"></label><button type="button" id="end-at-playhead" class="text-button">Use this team’s playhead as finish</button><p id="trim-error" class="form-error" role="alert" hidden></p><div class="dialog-actions"><button type="button" id="reset-window" class="text-button">Full recording</button><button type="submit" class="button primary-button">Apply window</button></div></form></dialog>
+  <dialog id="help-dialog" aria-labelledby="help-title"><div class="dialog-header"><div><span class="eyebrow">HEAD TO HEAD</span><h2 id="help-title">Compare the crews.</h2></div><button class="icon-button" data-close="help-dialog" aria-label="Close help">×</button></div><div class="help-content"><h3>Choose your alignment</h3><p>Elapsed time starts both selected windows at zero, even if they were recorded on different days. Actual clock time uses the original GPS timestamps. When markers overlap, their badges move slightly apart with short connectors to their actual positions. A team waits until its selected start and stays at its last position when its window ends.</p><h3>Make a fair comparison</h3><p>Set each team’s window to the actual race start and finish before assessing performance. Each distance is measured along its own track, so a distance difference is not a measured gap along a shared course. The table compares split durations only when the distances match.</p><h3>Explore together</h3><p>Play both tracks, drag either chart, tap a route, or use the shared slider. Tap a split time to seek to that team’s split start. Space plays or pauses; arrows seek ten seconds; Home/End jump to the comparison boundaries. Playback pauses when the tab is hidden.</p><h3>Recording intervals and speed</h3><p>The women’s Garmin track uses variable 1–11 second recording intervals. This page interpolates intervals up to 15 seconds for both teams. Larger gaps hold the last observed position and show no speed. Segment breaks and gaps over 30 seconds add no distance. Speed uses a centered 30-second window; missing speeds break the chart line.</p><h3>Your recordings</h3><p>Use either Load GPX button to replace that team’s track. File contents stay in your browser; uploaded tracks do not persist after reloading. Team names and selected windows save in this browser per recording. The two bundled examples are public; the women’s example retains coordinates and timestamps only, with health extensions omitted.</p><h3>Map source</h3><p>Online map requests reveal the viewed area to <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>. GPS routes, charts, and splits remain available if the basemap is unavailable.</p></div></dialog>
+</body>
+</html>
