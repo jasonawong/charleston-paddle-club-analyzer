@@ -1,10 +1,10 @@
-# Verification record · version 1.1.1
+# Verification record · version 1.2.0
 
 Verified October 25, 2026.
 
 ## Automated checks
 
-All 24 tests pass. JavaScript source and browser-bundle syntax checks pass.
+All 26 tests pass. JavaScript source and browser-bundle syntax checks pass.
 
 Coverage includes duplicate/out-of-order timestamps, invalid track data, interpolation, missing GPS coverage, disconnected segments, rebased race windows, full/partial distance splits, exact current-split boundaries, backwards seeking, final-finish handling, actual Chattajack regression checks, classic-script packaging, embedded race data, and startup error recovery.
 
@@ -52,6 +52,14 @@ Version 1.0.5 replaces the canoe drawing with a 40-pixel, club-blue palmetto tre
 The Head-to-Head Analyzer now uses UTC timestamps exclusively for its replay domain, chart coordinates, and split seeking. The alignment selector and saved-mode preference have been removed. The shared playhead shows date, clock time, and timezone; the seek toolbar shows clock time; trim labels show clock time without elapsed offsets. Team live readouts show distance. Window durations and split durations remain performance statistics. Automated tests cover absolute-clock defaults, independent trims, waiting and finished teams, removal of the old selection and preference, and fractional-timestamp precision at split boundaries.
 
 Browser checks at 1280×900 and 320×568 confirm clock-time toolbar labels and chart axes, no synchronization selector, no horizontal overflow, correct waiting/active/complete states, clock-preserving unit changes, and correct highlighting when seeking directly to a split. No new browser console warnings or errors were observed.
+
+## Landing page and replay teams · 1.2.0
+
+Head-to-Head Analyzer is served directly at `index.html`; it is first in the navigation on both pages. Race Replay moved to `race-replay.html`. The former `head-to-head.html` address forwards to the home page while preserving its query and fragment. Both runtime entries and the compatibility redirect are included in the Pages workflow and ZIP.
+
+Race Replay embeds both complete GPX tracks. Selecting the women’s team loaded 32.17 miles, 4:29:41, 3,647 points, a red palmetto, and the correct team subtitle. Her Garmin recording uses a 15-second interpolation threshold, allowing normal sparse observations to produce speed. Selecting the men’s team restored 31.98 miles, 4:28:01, and a blue palmetto. Changing teams during playback paused and reset the replay. A two-second trim applied only to the women’s window; switching away and back, then reloading, preserved that window and the selected team. The full recording was restored after verification. Loading a separate GPX selected the Loaded GPX placeholder, and choosing a bundled team hid that placeholder again. The old comparison address redirected to index.html with its version query intact.
+
+Browser checks at 1280×900, 390×844, and 320×568 confirm the selector fits without horizontal overflow, with Play fully visible near 359 pixels from the top on the narrow phone. The home page remains synchronized by actual clock time. New tests cover the landing page, legacy redirect, selector options, deployment packaging, and both embedded tracks.
 
 ## Deployment boundary
 

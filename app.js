@@ -3,7 +3,11 @@ import { parseGPX } from './gpx.js';
 import { palmettoMarkup, MARKER_SIZE } from './palmetto.js';
 
 const $ = id => document.getElementById(id);
-const state = { track: null, time: 0, start: 0, end: 1, confirmed: false, playing: false, rate: 60, unit: 'mi', follow: false, loop: false, selection: null, selectMode: false, timeZone: 'America/New_York', regional: false };
+const bundledTeams = {
+  men: { name: 'Men’s team', color: '#173e73', asset: 'pl-2026-10-24.gpx', gapThreshold: 5 },
+  women: { name: 'Women’s team', color: '#c73745', asset: 'cpc-women-chattajack-2026.gpx', gapThreshold: 15 }
+};
+const state = { track: null, team: null, time: 0, start: 0, end: 1, confirmed: false, playing: false, rate: 60, unit: 'mi', follow: false, loop: false, selection: null, selectMode: false, timeZone: 'America/New_York', regional: false };
 let map, routeLayer, progressLine, canoe, boundaryLayer, selectionLayer;
 let clockFrame = 0, lastFrame = 0, lastDraw = 0, toastTimer, chartGeometry, drag = null, importGeneration = 0;
 let splitRows = [], activeSplit = -1;
@@ -47,12 +51,13 @@ function contentKey(xml) {
   for (let i = 0; i < xml.length; i++) h = Math.imul(h ^ xml.charCodeAt(i), 16777619);
   return (h >>> 0).toString(16) + '-' + xml.length;
 }
-async function loadTrack(xml, bundled = false, generation = importGeneration) {
-  const track = parseGPX(xml);
+async function loadTrack(xml, team = null, generation = importGeneration) {
+  const bundled = bundledTeams[team];
+  const track = parseGPX(xml, bundled ? { gapThreshold: bundled.gapThreshold } : {});
   track.key = contentKey(xml);
   if (generation !== importGeneration) return;
   setPlaying(false);
-  state.track = track;
+  state.track = track; state.team = bundled ? team : null;
   state.regional = haversine(track.points[0], { lat: 35.058752, lon: -85.307859 }) < 30000;
   state.timeZone = state.regional ? 'America/New_York' : Intl.DateTimeFormat().resolvedOptions().timeZone;
   restore();
@@ -61,12 +66,20 @@ async function loadTrack(xml, bundled = false, generation = importGeneration) {
   $('units').value = state.unit; $('rate').value = String(state.rate);
   $('race-title').textContent = bundled ? 'Chattajack 2026' : track.name;
   const date = new Intl.DateTimeFormat('en-US', { timeZone: state.timeZone, month: 'long', day: 'numeric', year: 'numeric' }).format(new Date(track.epoch));
-  $('race-subtitle').textContent = (bundled ? 'Men’s team · Tennessee River Gorge · ' : state.regional ? 'Tennessee River region · ' : 'Your GPX recording · ') + date;
+  $('race-subtitle').textContent = (bundled ? bundled.name + ' · Tennessee River Gorge · ' : state.regional ? 'Tennessee River region · ' : 'Your GPX recording · ') + date;
   $('map-title').textContent = state.regional ? 'Tennessee River Gorge' : track.name;
   $('load-error').hidden = true; $('play').disabled = false;
+  $('custom-team-option').hidden = !!bundled; $('custom-team-option').disabled = !!bundled; $('replay-team').value = state.team || 'custom';
   if (!map) initializeMap();
+  else canoe?.setIcon(replayIcon());
+  if (canoe) { canoe.options.title = (bundled ? bundled.name + ' · ' : '') + 'Palmetto tree at replay position'; const element = canoe.getElement(); if (element) element.title = canoe.options.title; }
+  $('gap-policy-details').textContent = 'Speed uses a 30-second centered distance/time window, shortened at selected boundaries. Intervals over ' + track.gapThreshold + ' seconds hold the last observed position and receive no smoothed speed. Segment breaks and gaps over 30 seconds add no distance. Split times are measured within the selected race window.';
+  if (bundled) { try { localStorage.setItem('cpc:replay-team', team); } catch {} }
   updateWindow();
   $('loading').hidden = true;
+}
+function replayIcon() {
+  return L.divIcon({ className: 'palmetto-marker', iconSize: [MARKER_SIZE, MARKER_SIZE], iconAnchor: [MARKER_SIZE / 2, MARKER_SIZE / 2], html: palmettoMarkup(bundledTeams[state.team]?.color) });
 }
 function initializeMap() {
   if (!window.L) { $('map-notice').textContent = 'The map library could not load. Timeline replay remains available.'; $('map-notice').hidden = false; return; }
@@ -78,7 +91,7 @@ function initializeMap() {
   tiles.on('tileload', () => { tileErrors = 0; $('map-notice').hidden = true; });
   progressLine = L.polyline([], { color: '#173e73', weight: 10, opacity: .16, interactive: false }).addTo(map);
   routeLayer = L.layerGroup().addTo(map); selectionLayer = L.layerGroup().addTo(map); boundaryLayer = L.layerGroup().addTo(map);
-  const icon = L.divIcon({ className: 'palmetto-marker', iconSize: [MARKER_SIZE, MARKER_SIZE], iconAnchor: [MARKER_SIZE / 2, MARKER_SIZE / 2], html: palmettoMarkup() });
+  const icon = replayIcon();
   canoe = L.marker([0, 0], { icon, keyboard: false, zIndexOffset: 1000, title: 'Palmetto tree at replay position' }).addTo(map);
   map.on('dragstart', () => { state.follow = false; $('follow').checked = false; });
   map.on('click', event => {
@@ -390,25 +403,41 @@ $('gpx-file').addEventListener('change', async event => {
   const generation = ++importGeneration;
   try {
     if (file.size > 25 * 1024 * 1024) throw new Error('Choose a GPX file smaller than 25 MB.');
-    await loadTrack(await file.text(), false, generation); toast('Recording loaded. Your GPX stays in this browser.');
+    const xml = await file.text(); if (generation !== importGeneration) return;
+    await loadTrack(xml, null, generation); toast('Recording loaded. Your GPX stays in this browser.');
   } catch (error) { $('load-error').textContent = error.message; $('load-error').hidden = false; toast('Could not load that recording. The previous recording is unchanged.', true); }
   finally { event.target.value = ''; }
 });
 
+async function loadBundledTeam(team, generation = importGeneration) {
+  if (typeof embeddedRace !== 'undefined') {
+    await loadTrack(embeddedRace[team], team, generation);
+    return;
+  }
+  const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const response = await fetch('./assets/' + bundledTeams[team].asset, { signal: controller.signal });
+    if (!response.ok) throw new Error('Race file could not be loaded.');
+    const xml = await response.text(); if (generation !== importGeneration) return;
+    await loadTrack(xml, team, generation);
+  } finally { clearTimeout(timer); }
+}
+$('replay-team').addEventListener('change', async event => {
+  const team = event.target.value; if (!bundledTeams[team]) return;
+  const generation = ++importGeneration; setPlaying(false);
+  try { await loadBundledTeam(team, generation); }
+  catch (error) {
+    if (generation !== importGeneration) return;
+    $('replay-team').value = state.team || 'custom';
+    $('load-error').textContent = error.message; $('load-error').hidden = false;
+  }
+});
 async function boot() {
   try {
-    // build.mjs embeds this data in the classic browser script, avoiding file:// CORS.
-    if (typeof embeddedRace !== 'undefined') {
-      await loadTrack(embeddedRace.gpx, true, importGeneration);
-    } else {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 12000);
-      try {
-        const response = await fetch('./assets/pl-2026-10-24.gpx', { signal: controller.signal });
-        if (!response.ok) throw new Error('Race file could not be loaded.');
-        await loadTrack(await response.text(), true, importGeneration);
-      } finally { clearTimeout(timer); }
-    }
+    let team = 'men';
+    try { const saved = localStorage.getItem('cpc:replay-team'); if (['men', 'women'].includes(saved)) team = saved; } catch {}
+    // Both tracks are embedded, including when the app is opened directly from a download.
+    await loadBundledTeam(team, importGeneration);
     window.CPCStartup?.ready();
   } catch (error) {
     const message = error.message + ' Use Load GPX to open a recording, or re-extract the complete application download and try again.';

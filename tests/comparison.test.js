@@ -68,22 +68,22 @@ test('the women’s bundled recording retains replay coordinates and times with 
   assert.equal(track.gaps.length, 0); assert.ok(speedAt(track, 3600) > 0);
   assert.ok(!xml.includes('TrackPointExtension')); assert.ok(!xml.includes('<hr>'));
 });
-test('the second page is a relative classic-script entry with both complete recordings embedded', () => {
-  const html = read('head-to-head.html'), bundle = read('head-to-head.bundle.js');
+test('the comparison home page is a relative classic-script entry with both complete recordings embedded', () => {
+  const html = read('index.html'), bundle = read('head-to-head.bundle.js');
   assert.match(html, /head-to-head\.bundle\.js\?v=[\d.]+" defer/); assert.ok(!html.includes('type="module"'));
   assert.doesNotThrow(() => new vm.Script(bundle)); assert.ok(!/^import |^export /m.test(bundle));
   const marker = 'const embeddedComparison = ', start = bundle.indexOf(marker) + marker.length;
   const payload = JSON.parse(bundle.slice(start, bundle.indexOf(';\n', start)));
   assert.equal(payload.men, read('assets/pl-2026-10-24.gpx'));
   assert.equal(payload.women, read('assets/cpc-women-chattajack-2026.gpx'));
-  assert.match(read('index.html'), /href="\.\/head-to-head\.html"/);
-  assert.match(html, /href="\.\/index\.html"/);
+  assert.match(read('index.html'), /href="\.\/race-replay\.html\?v=1\.2\.0"/);
+  assert.match(read('race-replay.html'), /href="\.\/index\.html\?v=1\.2\.0"/);
   const workflow = read('.github/workflows/pages.yml');
   assert.match(workflow, /cp .*head-to-head\.html .*head-to-head\.bundle\.js/);
 });
 
 test('the comparison page offers only actual clock time and ignores old alignment preferences', () => {
-  const html = read('head-to-head.html'), source = read('head-to-head.js');
+  const html = read('index.html'), source = read('head-to-head.js');
   assert.ok(!html.includes('id="sync-mode"'));
   assert.ok(!html.includes('Elapsed time'));
   assert.ok(!source.includes('cpc:comparison-mode'));

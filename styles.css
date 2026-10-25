@@ -37,3 +37,7 @@
 
 .comparison-settings .sync-label{font-size:12px;color:var(--deep);flex-shrink:0}.comparison-page #playhead-time{white-space:nowrap;font-variant-numeric:tabular-nums}
 @media(max-width:560px){.comparison-settings .sync-label{font-size:11px}.comparison-page .seek-row{font-size:9px;gap:5px}.comparison-page #seek{min-width:40px}}
+
+/* Replay team selection stays beside the other race controls, and wraps on phones. */
+.race-options{flex-wrap:wrap}.team-selector select{min-width:125px}.team-selector{flex-shrink:0}
+@media(max-width:560px){.race-options .team-selector{width:100%;margin-bottom:3px}.team-selector select{flex:1;min-height:36px;font-size:16px}.race-options{row-gap:8px}}

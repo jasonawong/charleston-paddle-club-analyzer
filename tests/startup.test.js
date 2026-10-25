@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 const read = name => readFileSync(new URL('../' + name, import.meta.url), 'utf8');
-const html = read('index.html');
+const html = read('race-replay.html');
 const bundle = read('app.bundle.js');
 const guard = html.match(/<script id="startup-guard">([\s\S]*?)<\/script>/)[1];
 
@@ -23,12 +23,13 @@ test('browser entry is a classic script, not a file-origin-blocked module', () =
   assert.doesNotThrow(() => new vm.Script(bundle));
   assert.ok(!/^import\s|^export\s/m.test(bundle));
 });
-test('the browser bundle contains the complete race, requiring no GPX fetch', () => {
+test('the replay bundle contains both complete team tracks, requiring no GPX fetch', () => {
   const marker = 'const embeddedRace = ';
   const start = bundle.indexOf(marker) + marker.length;
   const payload = JSON.parse(bundle.slice(start, bundle.indexOf(';\n', start)));
-  assert.equal(payload.gpx, read('assets/pl-2026-10-24.gpx'));
-  assert.match(bundle, /loadTrack\(embeddedRace\.gpx/);
+  assert.equal(payload.men, read('assets/pl-2026-10-24.gpx'));
+  assert.equal(payload.women, read('assets/cpc-women-chattajack-2026.gpx'));
+  assert.match(bundle, /loadTrack\(embeddedRace\[team\]/);
 });
 test('stalled startup dismisses the loading screen with a recovery message', () => {
   const h = guardHarness(); h.timeout();
@@ -47,4 +48,20 @@ test('successful startup clears the watchdog and does not show a later startup f
   const h = guardHarness(); h.window.CPCStartup.ready(); h.timeout();
   assert.equal(h.cleared(), true);
   assert.equal(h.elements['load-error'].hidden, true);
+});
+
+test('the home page opens Head-to-Head and the former comparison URL forwards to it', () => {
+  const home = read('index.html'), alias = read('head-to-head.html');
+  assert.match(home, /<h2>Head-to-Head Analyzer<\/h2>/);
+  assert.match(home, /head-to-head\.bundle\.js\?v=[\d.]+" defer/);
+  assert.match(home, /href="\.\/index\.html\?v=1\.2\.0" aria-current="page">Head-to-Head Analyzer<\/a><a href="\.\/race-replay\.html\?v=1\.2\.0">Race Replay/);
+  assert.match(alias, /http-equiv="refresh" content="0;url=\.\/index\.html"/);
+  assert.match(alias, /location\.replace\('\.\/index\.html' \+ location\.search \+ location\.hash\)/);
+  assert.match(read('.github/workflows/pages.yml'), /cp .*race-replay\.html /);
+});
+test('Race Replay offers both bundled teams and distinguishes a separately loaded GPX', () => {
+  assert.match(html, /id="replay-team" aria-label="Replay team"/);
+  assert.match(html, /option value="men">Men’s team/);
+  assert.match(html, /option value="women">Women’s team/);
+  assert.match(html, /id="custom-team-option" value="custom" hidden disabled>Loaded GPX/);
 });

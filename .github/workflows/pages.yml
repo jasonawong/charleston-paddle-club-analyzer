@@ -36,7 +36,7 @@ jobs:
       - name: Prepare the static site
         run: |
           mkdir -p _site/assets _site/vendor
-          cp index.html head-to-head.html styles.css app.bundle.js head-to-head.bundle.js .nojekyll _site/
+          cp index.html head-to-head.html race-replay.html styles.css app.bundle.js head-to-head.bundle.js .nojekyll _site/
           cp -R assets/. _site/assets/
           cp -R vendor/. _site/vendor/
       - uses: actions/configure-pages@v5

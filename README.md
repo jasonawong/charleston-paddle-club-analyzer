@@ -2,11 +2,11 @@
 
 A responsive GPX race replay for Charleston Paddle Club, including the men’s and women’s October 24, 2026 Chattajack recordings. The prebuilt app runs entirely in the browser and supports GitHub Pages without a backend, paid API, or API key.
 
-Version 1.1.1 uses actual clock time exclusively on the Head-to-Head Analyzer. Version 1.1.0 added a **Head-to-Head Analyzer** page for synchronized comparisons. Both pages use smaller, upright palmetto markers (28 pixels); the women’s comparison marker is red. The single-recording page places a clearly labeled Play/Pause button and the seek slider above the map on every screen size. The playback bar stays near the top while scrolling, with no fixed bottom player to be hidden by a phone browser’s bottom chrome. The interface focuses on the map, timeline, playback summary, and distance splits. The Coaching, Conditions, and Moments sections have been removed. On laptops the splits appear in the right column directly below the blue playback summary. The current split highlights automatically during playback and seeking.
+Version 1.2.0 opens **Head-to-Head Analyzer** as the home page, using actual clock time for synchronized comparisons. **Race Replay** has a team selector for the men’s and women’s bundled tracks and remembers the last selected team. Each recording keeps its own race window. Both pages use smaller upright palmettos: blue for men and red for women. Play/Pause and the seek slider stay above the map and near the top while scrolling. The single-track view includes its map, speed chart, playback summary, and highlighted splits.
 
 ## Open the download
 
-Extract the entire ZIP and open `index.html` in Chrome or another modern browser. Keep both HTML files, both browser bundles, `styles.css`, `assets/`, and `vendor/` together. Use the page navigation to switch between Race Replay and Head-to-Head Analyzer. A classic browser bundle contains the full recording, so opening the file does not require module imports or local-file requests. Startup failures display a recovery message instead of an endless loading screen. Online map tiles require internet access.
+Extract the entire ZIP and open `index.html` in Chrome or another modern browser. Keep all HTML files, both browser bundles, `styles.css`, `assets/`, and `vendor/` together. The home page opens Head-to-Head Analyzer. Use Race Replay in the navigation to open `race-replay.html`. The old `head-to-head.html` address forwards to the home page. A classic browser bundle contains the full recording, so opening the file does not require module imports or local-file requests. Startup failures display a recovery message instead of an endless loading screen. Online map tiles require internet access.
 
 ## Publish on GitHub Pages
 
@@ -19,6 +19,8 @@ Extract the entire ZIP and open `index.html` in Chrome or another modern browser
 The workflow already exists; no suggested workflow template is needed. Assets use relative URLs, so both project URLs and custom domains work. Publishing makes both bundled recordings publicly downloadable. The women’s public example retains replay coordinates and timestamps; unused heart-rate extensions are omitted. GPX files loaded by visitors are parsed locally and are never uploaded by the app.
 
 ## Explore the race
+
+Open **Race Replay**, then choose **Men’s team** or **Women’s team** in the Team selector. Switching updates the map, palmetto color, speed chart, statistics, and splits; it pauses playback and restores that recording’s saved race window. Both tracks are embedded in the browser bundle. If you load a different file, the selector shows **Loaded GPX**.
 
 - Use the labeled Play/Pause button above the map. Playback controls stay near the top while scrolling on laptops and phones.
 - Play at 1×–300×, seek on the map, speed chart, or slider, and switch miles/kilometers.
@@ -34,7 +36,7 @@ Space toggles playback; left/right arrows seek ten seconds; Home/End jump to the
 
 ## Head-to-Head Analyzer
 
-Open `head-to-head.html`, or use the navigation above either page. The two club tracks load automatically.
+Open `index.html` (the home page), or use the Head-to-Head Analyzer link above either page. The two club tracks load automatically.
 
 - Blue solid route and blue palmetto: men’s team. Red dashed route and red palmetto: women’s team. Small badges separate with short connectors when their map positions overlap.
 - **Actual clock time** preserves the original GPS timestamps for shared playback, chart axes, and seeking. The synchronization selector has been removed; older alignment preferences are ignored. These recordings started about 31 seconds apart. Teams wait before their selected start and hold their last position after their selected finish.
@@ -42,7 +44,7 @@ Open `head-to-head.html`, or use the navigation above either page. The two club 
 - Shared playback, speed controls, looping, and seeking update both markers, live readouts, speed and distance charts, and each team’s current split. Tap a route, drag either chart, or select a team’s split time to explore.
 - The table pairs one-mile or one-kilometer intervals measured from each selected start. It includes split duration and average speed. The time difference is red minus blue; unequal partial distances are not compared.
 - Distance difference compares distance along each separate track; it is not an official course gap. Full-recording durations are not official race results.
-- The women’s Garmin export uses variable 1–11 second recording intervals. The comparison page interpolates observations up to 15 seconds apart; larger gaps hold the last position and receive no speed. The single-track page retains its original five-second gap policy. Both use 30-second smoothed ground speed.
+- The women’s Garmin export uses variable 1–11 second recording intervals. The comparison page interpolates observations up to 15 seconds apart; larger gaps hold the last position and receive no speed. Race Replay uses the same 15-second policy for the bundled women’s Garmin track; the men’s track and custom uploads retain the five-second policy. Both use 30-second smoothed ground speed.
 - Loaded files stay in browser memory and reset on reload. Names and race windows save per recording in this browser, separately from Race Replay’s saved windows.
 
 ## Calculation details
@@ -72,4 +74,4 @@ No package installation is needed. To preview over HTTP:
 
 Open http://127.0.0.1:4173. The Pages workflow rebuilds and tests automatically before deploying only runtime files.
 
-Tests cover timestamp cleanup, missing GPS coverage, disconnected segments, interpolation, race-window totals, full and partial splits, current-split boundary semantics, backwards seeking, real GPX regressions, classic-script packaging, startup recovery, UTC comparison alignment, waiting and finished teams, matched split comparisons, variable recording intervals, and the real women’s recording.
+Tests cover timestamp cleanup, missing GPS coverage, disconnected segments, interpolation, race-window totals, full and partial splits, current-split boundary semantics, backwards seeking, real GPX regressions, classic-script packaging, default-page navigation and redirect compatibility, both embedded replay teams, startup recovery, UTC comparison alignment, waiting and finished teams, matched split comparisons, variable recording intervals, and the real women’s recording.
